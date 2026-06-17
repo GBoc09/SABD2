@@ -1,20 +1,16 @@
-FROM apache/nifi:latest
+FROM apache/nifi:2.4.0
 
-# Create hadoop and ingestion conf directories
-RUN mkdir $NIFI_HOME/conf/hadoop
-RUN mkdir $NIFI_HOME/conf/nifi-ingestion
-RUN mkdir $NIFI_HOME/nifi-output
+RUN mkdir -p $NIFI_HOME/conf/hadoop \
+    && mkdir -p $NIFI_HOME/conf/nifi-ingestion \
+    && mkdir -p $NIFI_HOME/nifi-output
 
-# Copy hadoop configuration files
-COPY --chown=nifi:nifi conf/hadoop/core-site.xml  $NIFI_HOME/conf/hadoop//hdfs-site.xml
-COPY --chown=nifi:nifi conf/hadoop/hdfs-site.xml  $NIFI_HOME/conf/hadoop/core-site.xml
+COPY --chown=nifi:nifi hadoop/hadoop-conf/core-site.xml  $NIFI_HOME/conf/hadoop/core-site.xml
+COPY --chown=nifi:nifi hadoop/hadoop-conf/hdfs-site.xml  $NIFI_HOME/conf/hadoop/hdfs-site.xml
 
-# Copy the extensions for nifi
-COPY --chown=nifi:nifi lib/nifi-hadoop-libraries-nar-2.4.0.nar $NIFI_HOME/lib/nifi-hadoop-libraries-nar-2.4.0.nar
-COPY --chown=nifi:nifi lib/nifi-hadoop-nar-2.4.0.nar $NIFI_HOME/lib/nifi-hadoop-nar-2.4.0.nar
-COPY --chown=nifi:nifi lib/nifi-parquet-nar-2.4.0.nar $NIFI_HOME/lib/nifi-parquet-nar-2.4.0.nar
+COPY --chown=nifi:nifi nifi/lib/nifi-hadoop-libraries-nar-2.4.0.nar $NIFI_HOME/lib/
+COPY --chown=nifi:nifi nifi/lib/nifi-hadoop-nar-2.4.0.nar $NIFI_HOME/lib/
+COPY --chown=nifi:nifi nifi/lib/nifi-parquet-nar-2.4.0.nar $NIFI_HOME/lib/
 
-# Copy the flow configuration files for nifi
-COPY --chown=nifi:nifi conf/flow.json.gz $NIFI_HOME/conf/flow.json.gz
+COPY --chown=nifi:nifi nifi/conf/flow.json.gz $NIFI_HOME/conf/flow.json.gz
 
 EXPOSE 8443
