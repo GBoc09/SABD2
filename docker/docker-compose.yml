@@ -86,6 +86,30 @@ services:
     depends_on:
       - namenode
 
+
+  ## REPLAY
+  replay:
+    build:
+      context: ..
+      dockerfile: docker/replay/Dockerfile
+
+    container_name: replay
+
+    hostname: replay
+
+    environment:
+      - HDFS_URI=hdfs://namenode:8020
+      - HDFS_FILE_PATH=/nifi_output/merge.csv
+
+    networks:
+      - streaming_processing_network
+
+    depends_on:
+      - namenode
+      - kafka
+
+
+
   ## KAFKA 
   kafka:
     image: apache/kafka:3.7.0
