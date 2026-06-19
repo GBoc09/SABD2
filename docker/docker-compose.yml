@@ -101,6 +101,9 @@ services:
       - HDFS_URI=hdfs://namenode:8020
       - HDFS_FILE_PATH=/nifi_output/merge.csv
 
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=flights
+
     networks:
       - streaming_processing_network
 
@@ -165,6 +168,33 @@ services:
       - streaming_processing_network
 
 
+  ## Flink 
+  jobmanager:
+    image: flink:1.19
+    container_name: jobmanager
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+    networks:
+      - streaming_processing_network
+
+  taskmanager:
+    image: flink:1.19
+    container_name: taskmanager
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 2
+    networks:
+      - streaming_processing_network
 
 
 

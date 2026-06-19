@@ -1,6 +1,10 @@
 package it.uniroma2.sabd.replay; 
+
 import it.uniroma2.sabd.model.FlightEvent; 
 import it.uniroma2.sabd.replay.loader.HdfsFlightLoader;
+import it.uniroma2.sabd.kafka.KafkaTopicManager;
+import it.uniroma2.sabd.kafka.KafkaFlightProducer;
+
 
 import java.util.List;
 
@@ -8,11 +12,10 @@ import java.util.List;
 public class ReplayApplication {
     public static void main(String[] args) throws Exception {
         String hdfsUri =
-                System.getenv()
-                        .getOrDefault(
+                System.getenv().getOrDefault(
                                 "HDFS_URI",
                                 "hdfs://namenode:8020"
-                        );
+        );
 
         String hdfsFilePath =
                 System.getenv()
@@ -28,6 +31,41 @@ public class ReplayApplication {
                         + hdfsUri
         );
 
+        String bootstrapServers =
+            System.getenv()
+                .getOrDefault(
+                        "KAFKA_BOOTSTRAP_SERVERS",
+                        "kafka:9092"
+                );
+
+        String topic =
+            System.getenv()
+                .getOrDefault(
+                        "KAFKA_TOPIC",
+                        "flights"
+            );
+
+        KafkaTopicManager topicManager =
+            new KafkaTopicManager(
+                bootstrapServers
+        );
+
+        topicManager.createTopicIfNotExists(
+            topic,
+            1,
+            (short) 1
+        );
+
+        KafkaFlightProducer producer =
+        new KafkaFlightProducer(bootstrapServers, topic);
+
+        System.out.println(
+            "Kafka topic: " + topic
+        );
+        System.out.println(
+            "Kafka broker: " + bootstrapServers
+        );
+
         HdfsFlightLoader loader =
                 new HdfsFlightLoader();
 
@@ -41,9 +79,12 @@ public class ReplayApplication {
                         + events.size()
         );
         ReplayEngine replayEngine =
-                new ReplayEngine(10000);
+                new ReplayEngine(10000, producer);
 
         replayEngine.replay(events);
+        producer.close();
+
+   
         
     }
 }

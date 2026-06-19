@@ -1,5 +1,8 @@
+it/uniroma2/sabd/kafka/KafkaTopicManager.class
+it/uniroma2/sabd/kafka/KafkaFlightProducer.class
+it/uniroma2/sabd/utils/EventTimeBuilder.class
+it/uniroma2/sabd/flink/FlinkKafkaConsumerJob.class
 it/uniroma2/sabd/replay/ReplayApplication.class
 it/uniroma2/sabd/replay/loader/HdfsFlightLoader.class
 it/uniroma2/sabd/replay/ReplayEngine.class
 it/uniroma2/sabd/model/FlightEvent.class
-it/uniroma2/sabd/utils/EventTimeBuilder.class
