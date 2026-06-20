@@ -44,7 +44,10 @@ public class ReplayApplication {
                         "KAFKA_TOPIC",
                         "flights"
             );
-
+        int partitions = Integer.parseInt(
+                System.getenv().getOrDefault("KAFKA_PARTITIONS", "1")
+        );
+        System.out.println(partitions);
         KafkaTopicManager topicManager =
             new KafkaTopicManager(
                 bootstrapServers
@@ -52,7 +55,7 @@ public class ReplayApplication {
 
         topicManager.createTopicIfNotExists(
             topic,
-            1,
+            partitions,
             (short) 1
         );
 

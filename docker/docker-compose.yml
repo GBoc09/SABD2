@@ -57,6 +57,7 @@ services:
       - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
       - HDFS_CONF_dfs_replication=1
       - HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check=false
+      - HDFS_CONF_dfs_permissions_enabled=false
 
     volumes:
       - namenode:/hadoop/dfs/name
@@ -77,6 +78,7 @@ services:
       CORE_CONF_fs_defaultFS: "hdfs://namenode:8020"
       HDFS_CONF_dfs_replication: "1"
       HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check: "false"
+      HDFS_CONF_dfs_permissions_enabled: "false"
 
 
     volumes:
@@ -103,6 +105,7 @@ services:
 
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_TOPIC=flights
+      - KAFKA_PARTITIONS=4
 
     networks:
       - streaming_processing_network
@@ -192,7 +195,7 @@ services:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
-        taskmanager.numberOfTaskSlots: 2
+        taskmanager.numberOfTaskSlots: 4
     networks:
       - streaming_processing_network
 

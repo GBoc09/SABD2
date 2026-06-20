@@ -37,11 +37,11 @@ public class ReplayEngine {
                         + events.size()
         );
 
-        FlightEvent previous =
-                events.get(0);
-        
+        FlightEvent previous = events.get(0);
+
         producer.send(previous);
-        for (int i= 1; i < events.size(); i++) {
+
+        for (int i = 1; i < events.size(); i++) {
             FlightEvent current = events.get(i);
 
             long deltaMillis =
@@ -50,8 +50,7 @@ public class ReplayEngine {
                             current.getEventTime()
                     ).toMillis();
 
-            long sleepMillis =
-                    deltaMillis / accelerationFactor;
+            long sleepMillis = deltaMillis / accelerationFactor;
 
             if (sleepMillis > 0) {
                 Thread.sleep(sleepMillis);
@@ -61,14 +60,13 @@ public class ReplayEngine {
 
             previous = current;
         }
-
+        /*
 
         System.out.println(previous);
 
         for (int i = 1; i < events.size(); i++) {
 
-            FlightEvent current =
-                    events.get(i);
+            FlightEvent current = events.get(i);
 
             long deltaMillis =
                     Duration.between(
@@ -76,8 +74,7 @@ public class ReplayEngine {
                             current.getEventTime()
                     ).toMillis();
 
-            long sleepMillis =
-                    deltaMillis / accelerationFactor;
+            long sleepMillis = deltaMillis / accelerationFactor;
 
             if (sleepMillis > 0) {
                 Thread.sleep(sleepMillis);
@@ -87,6 +84,7 @@ public class ReplayEngine {
 
             previous = current;
         }
+        */
 
         System.out.println("Replay completed.");
     }
