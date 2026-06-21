@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Creiamo una variabile che include sia il compose file che il file .env
 COMPOSE_CMD="docker compose --env-file docker/.env -f docker/docker-compose.yml"
 
 echo "=============================================="
@@ -9,7 +8,7 @@ echo "   Avvio Pipeline Streaming - SABD2           "
 echo "=============================================="
 echo ""
 
-echo "[1/6] Compilazione del progetto Java..."
+echo "[1/5] Compilazione del progetto Java..."
 if [ -f "pom.xml" ]; then
     mvn clean package -DskipTests
     echo "Build Maven completata."
@@ -19,50 +18,37 @@ else
     echo ""
 fi
 
-echo "[2/6] Pull e Build delle immagini Docker..."
+echo "[2/5] Pull e Build delle immagini Docker..."
 $COMPOSE_CMD pull --ignore-pull-failures
+
+echo "Forzando la build di NiFi senza cache..."
+$COMPOSE_CMD build --no-cache nifi
+
+echo "Build standard per gli altri servizi..."
 $COMPOSE_CMD build
 echo "Immagini pronte."
 echo ""
 
-echo "[3/6] Avvio dell'infrastruttura core..."
+echo "[3/5] Avvio dell'infrastruttura core..."
 $COMPOSE_CMD up -d nifi namenode datanode kafka kafka-ui jobmanager taskmanager
 echo "Container core avviati."
 echo ""
 
-echo "[4/6] Indirizzi dei servizi esposti:"
+echo "[4/5] Indirizzi dei servizi esposti:"
 echo " - Kafka UI:      http://localhost:8080"
 echo " - Hadoop (HDFS): http://localhost:9870"
-echo " - Apache NiFi:   https://localhost:8443/nifi"
+echo " - Apache NiFi:   https://localhost:8443/nifi/login"
 echo " - Apache Flink:  http://localhost:8081"
 echo ""
 
-echo "[5/6] In attesa che NiFi scriva i dati su HDFS..."
-MAX_RETRIES=60
-RETRY_COUNT=0
-FILE_READY=false
-
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if docker exec namenode hdfs dfs -test -e /nifi_output/merge.csv > /dev/null 2>&1; then
-        FILE_READY=true
-        break
-    fi
-    echo -n "."
-    sleep 120
-    ((RETRY_COUNT++))
-done
+echo "[5/5] Istruzioni per il Replay Engine..."
+echo "L'infrastruttura di base è pronta. Lascia a NiFi il tempo di elaborare"
+echo "i file CSV e scriverli su HDFS nella cartella /nifi_output/merge.csv."
 echo ""
-
-if [ "$FILE_READY" = true ]; then
-    echo "File /nifi_output/merge.csv trovato in HDFS!"
-    echo ""
-else
-    echo "ERRORE: Timeout. Il file non è stato generato su HDFS."
-    exit 1
-fi
-
-echo "[6/6] Avvio del Replay Engine..."
-$COMPOSE_CMD up -d replay
-echo "Container replay avviato con successo."
+echo "Quando vedi che i dati su HDFS sono pronti, lancia QUESTO comando"
+echo "per ricompilare l'immagine con il nuovo .jar e far partire il replay:"
+echo "----------------------------------------------------------------------"
+echo "sudo $COMPOSE_CMD up --build replay"
+echo "----------------------------------------------------------------------"
 echo ""
-echo "Pipeline avviata! Puoi controllare i log con: docker logs -f replay"
+echo "Infrastruttura avviata con successo!"

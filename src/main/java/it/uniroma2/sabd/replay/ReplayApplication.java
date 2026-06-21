@@ -82,7 +82,7 @@ public class ReplayApplication {
                         + events.size()
         );
         ReplayEngine replayEngine =
-                new ReplayEngine(10000, producer);
+                new ReplayEngine(20000, producer);
 
         replayEngine.replay(events);
         producer.close();
