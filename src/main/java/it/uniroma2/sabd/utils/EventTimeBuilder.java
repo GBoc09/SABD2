@@ -13,23 +13,16 @@ public class EventTimeBuilder {
             int day,
             int crsDepTime) {
 
-        String hhmm =
-                String.format("%04d", crsDepTime);
+        String hhmm = String.format("%04d", crsDepTime);
 
-        int hour =
-                Integer.parseInt(
-                        hhmm.substring(0, 2));
+        int hour = Integer.parseInt(hhmm.substring(0, 2));
+        int minute = Integer.parseInt(hhmm.substring(2, 4));
 
-        int minute =
-                Integer.parseInt(
-                        hhmm.substring(2, 4));
+        // Gestione della mezzanotte (2400)
+        if (hour == 24) {
+            return LocalDateTime.of(year, month, day, 0, minute).plusDays(1);
+        }
 
-        return LocalDateTime.of(
-                year,
-                month,
-                day,
-                hour,
-                minute
-        );
+        return LocalDateTime.of(year, month, day, hour, minute);
     }
 }

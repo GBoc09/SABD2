@@ -4,8 +4,9 @@ import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.kafka.KafkaFlightProducer;
 
 import java.time.Duration;
-import java.util.Comparator;
+//import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class ReplayEngine {
 
@@ -26,11 +27,11 @@ public class ReplayEngine {
 
         System.out.println("Sorting events...");
 
-        events.sort(
+        /*events.sort(
                 Comparator.comparing(
                         FlightEvent::getEventTime
                 )
-        );
+        );*/
 
         System.out.println(
                 "Replay started. Events: "
@@ -50,10 +51,13 @@ public class ReplayEngine {
                             current.getEventTime()
                     ).toMillis();
 
-            long sleepMillis = deltaMillis / accelerationFactor;
+            long sleepMillis = Math.max(
+                    0,
+                    deltaMillis / accelerationFactor
+            );
 
             if (sleepMillis > 0) {
-                Thread.sleep(sleepMillis);
+                TimeUnit.MILLISECONDS.sleep(sleepMillis);
             }
 
             producer.send(current);

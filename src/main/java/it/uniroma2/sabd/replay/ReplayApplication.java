@@ -1,93 +1,55 @@
-package it.uniroma2.sabd.replay; 
+package it.uniroma2.sabd.replay;
 
-import it.uniroma2.sabd.model.FlightEvent; 
+import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.replay.loader.HdfsFlightLoader;
 import it.uniroma2.sabd.kafka.KafkaTopicManager;
 import it.uniroma2.sabd.kafka.KafkaFlightProducer;
-
+import it.uniroma2.sabd.config.ReplayConfig;
 
 import java.util.List;
 
-
 public class ReplayApplication {
     public static void main(String[] args) throws Exception {
-        String hdfsUri =
-                System.getenv().getOrDefault(
-                                "HDFS_URI",
-                                "hdfs://namenode:8020"
-        );
 
-        String hdfsFilePath =
-                System.getenv()
-                        .getOrDefault(
-                                "HDFS_FILE_PATH",
-                                "/nifi_output/merge.csv"
-                        );
+        ReplayConfig config = new ReplayConfig();
 
-        System.out.println(
-                "Reading HDFS file "
-                        + hdfsFilePath
-                        + " from "
-                        + hdfsUri
-        );
+        System.out.println("--- Avvio Replay Engine ---");
+        System.out.println("Reading HDFS file " + config.getHdfsFilePath() + " from " + config.getHdfsUri());
+        System.out.println("Kafka broker: " + config.getKafkaBootstrapServers());
+        System.out.println("Kafka topic: " + config.getKafkaTopic() + " (Partitions: " + config.getKafkaPartitions() + ")");
+        System.out.println("Acceleration factor: " + config.getAccelerationFactor() + "x");
+        System.out.println("---------------------------");
 
-        String bootstrapServers =
-            System.getenv()
-                .getOrDefault(
-                        "KAFKA_BOOTSTRAP_SERVERS",
-                        "kafka:9092"
-                );
-
-        String topic =
-            System.getenv()
-                .getOrDefault(
-                        "KAFKA_TOPIC",
-                        "flights"
-            );
-        int partitions = Integer.parseInt(
-                System.getenv().getOrDefault("KAFKA_PARTITIONS", "1")
-        );
-        System.out.println(partitions);
-        KafkaTopicManager topicManager =
-            new KafkaTopicManager(
-                bootstrapServers
-        );
+        KafkaTopicManager topicManager = new KafkaTopicManager(config.getKafkaBootstrapServers());
 
         topicManager.createTopicIfNotExists(
-            topic,
-            partitions,
-            (short) 1
+                config.getKafkaTopic(),
+                config.getKafkaPartitions(),
+                (short) 1
         );
 
-        KafkaFlightProducer producer =
-        new KafkaFlightProducer(bootstrapServers, topic);
-
-        System.out.println(
-            "Kafka topic: " + topic
-        );
-        System.out.println(
-            "Kafka broker: " + bootstrapServers
+        KafkaFlightProducer producer = new KafkaFlightProducer(
+                config.getKafkaBootstrapServers(),
+                config.getKafkaTopic()
         );
 
-        HdfsFlightLoader loader =
-                new HdfsFlightLoader();
-
-        List<FlightEvent> events =
-                loader.load(
-                        hdfsUri,
-                        hdfsFilePath
-                );
-        System.out.println(
-                "Loaded events: "
-                        + events.size()
+        //Caricamento Dati
+        HdfsFlightLoader loader = new HdfsFlightLoader();
+        List<FlightEvent> events = loader.load(
+                config.getHdfsUri(),
+                config.getHdfsFilePath()
         );
-        ReplayEngine replayEngine =
-                new ReplayEngine(20000, producer);
+
+        System.out.println("Loaded events: " + events.size());
+
+        //Avvio Replay
+        ReplayEngine replayEngine = new ReplayEngine(
+                config.getAccelerationFactor(),
+                producer
+        );
 
         replayEngine.replay(events);
-        producer.close();
 
-   
-        
+        producer.close();
     }
 }

@@ -1,7 +1,8 @@
 package it.uniroma2.sabd.config;
 
-
 import org.apache.flink.api.java.utils.ParameterTool;
+import java.io.InputStream;
+import java.util.Properties;
 
 public class AppConfig {
 
@@ -10,17 +11,26 @@ public class AppConfig {
     private final int flinkParallelism;
 
     private AppConfig(ParameterTool params) {
-        // 1. Cerca nei parametri passati da riga di comando (es. --brokers kafka:9092)
-        // 2. Se non c'è, cerca nelle variabili d'ambiente
-        // 3. Se non c'è, usa il valore di default
+        Properties props = new Properties();
+        try (InputStream input = AppConfig.class.getClassLoader().getResourceAsStream("application.properties")) {
+            if (input != null) {
+                props.load(input);
+            }
+        } catch (Exception e) {
+            System.err.println("Impossibile caricare application.properties per Flink.");
+        }
+
         this.kafkaBootstrapServers = params.get("brokers",
-                System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092"));
+                System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS",
+                        props.getProperty("kafka.bootstrap.servers", "kafka:9092")));
 
         this.kafkaTopic = params.get("topic",
-                System.getenv().getOrDefault("KAFKA_TOPIC", "flights"));
+                System.getenv().getOrDefault("KAFKA_TOPIC",
+                        props.getProperty("kafka.topic", "flights")));
 
         this.flinkParallelism = params.getInt("parallelism",
-                Integer.parseInt(System.getenv().getOrDefault("FLINK_PARALLELISM", "4")));
+                Integer.parseInt(System.getenv().getOrDefault("FLINK_PARALLELISM",
+                        props.getProperty("flink.parallelism", "4"))));
     }
 
     // Metodo Factory per costruire la configurazione
