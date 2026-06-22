@@ -217,7 +217,7 @@ services:
     command: >
       bash -c "
       sleep 10 &&
-      flink run
+      flink run -d
       -m jobmanager:8081
       -c it.uniroma2.sabd.flink.FlinkKafkaConsumerJob
       /opt/flink/usrlib/analisi-voli-1.0.0.jar
