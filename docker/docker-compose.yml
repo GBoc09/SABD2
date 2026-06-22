@@ -199,7 +199,32 @@ services:
     networks:
       - streaming_processing_network
 
+  flink-job:
+    image: flink:1.19
+    container_name: flink-job
 
+    depends_on:
+      - jobmanager
+      - taskmanager
+      - kafka
+
+    networks:
+      - streaming_processing_network
+
+    volumes:
+      - ../target/analisi-voli-1.0.0.jar:/opt/flink/usrlib/analisi-voli-1.0.0.jar
+
+    command: >
+      bash -c "
+      sleep 10 &&
+      flink run
+      -m jobmanager:8081
+      -c it.uniroma2.sabd.flink.FlinkKafkaConsumerJob
+      /opt/flink/usrlib/analisi-voli-1.0.0.jar
+      --brokers kafka:9092
+      --topic flights
+      --parallelism 4
+      "
 
 
 networks:
