@@ -36,7 +36,7 @@ public final class Query1 {
                 .window(TumblingEventTimeWindows.of(Duration.ofHours(1)))
                 .aggregate(
                         new Query1Accumulator(),
-                        new AddWindowInfo()
+                        new FinalizeQuery1Stats()
                 );
 
         stats

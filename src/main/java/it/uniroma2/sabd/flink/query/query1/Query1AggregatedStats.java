@@ -1,7 +1,6 @@
 package it.uniroma2.sabd.flink.query.query1;
 
-final class Query1PartialStats {
-    final String airline;
+final class Query1AggregatedStats {
     final long totalFlights;
     final long completedFlights;
     final long cancelledFlights;
@@ -10,8 +9,7 @@ final class Query1PartialStats {
     final double cancellationRate;
     final double lateDepartureRate;
 
-    Query1PartialStats(
-            String airline,
+    Query1AggregatedStats(
             long totalFlights,
             long completedFlights,
             long cancelledFlights,
@@ -19,7 +17,6 @@ final class Query1PartialStats {
             double avgDepDelay,
             double cancellationRate,
             double lateDepartureRate) {
-        this.airline = airline;
         this.totalFlights = totalFlights;
         this.completedFlights = completedFlights;
         this.cancelledFlights = cancelledFlights;

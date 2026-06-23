@@ -6,15 +6,15 @@ import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
 
-final class AddWindowInfo implements WindowFunction<Query1PartialStats, Query1Stats, String, TimeWindow> {
+final class FinalizeQuery1Stats implements WindowFunction<Query1AggregatedStats, Query1Stats, String, TimeWindow> {
 
     @Override
     public void apply(
             String airline,
             TimeWindow window,
-            Iterable<Query1PartialStats> partialStats,
+            Iterable<Query1AggregatedStats> aggregatedStats,
             Collector<Query1Stats> out) {
-        Query1PartialStats stats = partialStats.iterator().next();
+        Query1AggregatedStats stats = aggregatedStats.iterator().next();
 
         out.collect(new Query1Stats(
                 Instant.ofEpochMilli(window.getStart()),
