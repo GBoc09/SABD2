@@ -94,7 +94,7 @@ create_kafka_topic
 wait_for_hdfs_file "/nifi_output/merge.csv"
 
 echo "[4/6] Avvio del Job Flink..."
-$COMPOSE_CMD run --rm flink-job
+$COMPOSE_CMD run --rm flink-job bash -c "sleep 10 && flink run -d -m jobmanager:8081 -c it.uniroma2.sabd.flink.MainJob /opt/flink/usrlib/analisi-voli-1.0.0.jar --brokers kafka:9092 --topic $KAFKA_TOPIC --parallelism $KAFKA_PARTITIONS"
 echo "Job Flink sottomesso al cluster."
 
 echo ""

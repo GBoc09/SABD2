@@ -148,8 +148,6 @@ services:
 
     networks:
       - streaming_processing_network
-    volumes:
-      - kafka-data:/tmp/kraft-combined-logs
 
 
   kafka-ui:
@@ -236,4 +234,3 @@ networks:
 volumes:
   namenode:
   datanode:
-  kafka-data:
