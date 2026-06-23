@@ -35,12 +35,22 @@ public class FlinkKafkaConsumerJob {
                 org.apache.flink.api.common.eventtime.WatermarkStrategy.noWatermarks(),
                 "Kafka Source"
         );
+        
         DataStream<FlightEvent> flightStream =
                 stringStream.map(new FlightEventDeserializer());
 
-        flightStream
-                .keyBy(event-> "GLOBAL")
-                .process(new OutOfOrderDetector())
+        DataStream<FlightEvent> monitoredStream = flightStream
+                .process(new LatencyMonitor<>("kafka→flink",
+                        config.getMetricsLatencyIntervalMs()));
+
+
+        monitoredStream = monitoredStream
+                .process(new ThroughputMonitor<>("ingresso",
+                        config.getMetricsThroughputIntervalMs()));
+
+        monitoredStream
+                .keyBy(event -> "GLOBAL")
+                .process(new OutOfOrderDetector(config.getOooReportEveryEvents()))
                 .print();
 
         env.execute("Flight Out-Of-Order Monitor");

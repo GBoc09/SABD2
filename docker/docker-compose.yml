@@ -182,6 +182,7 @@ services:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
+
     networks:
       - streaming_processing_network
 

@@ -8,12 +8,18 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.util.Collector;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.ZoneOffset;
 
 public class OutOfOrderDetector
         extends KeyedProcessFunction<String, FlightEvent, FlightEvent> {
 
     private ValueState<Long> maxTimestampState;
+
+    private static final Logger LOG =
+        LoggerFactory.getLogger(OutOfOrderDetector.class);
 
     // Statistiche
     private long totalEvents;
@@ -22,8 +28,18 @@ public class OutOfOrderDetector
     private long totalLatenessMs;
     private long lastEventTimeSeen;
 
-    // Stampa un report ogni N eventi
-    private static final long REPORT_EVERY = 1_000;
+    private long over1s;
+    private long over5s;
+    private long over10s;
+    private long over30s;
+
+    // Variabile dinamica
+    private final long reportEvery;
+
+    // NUOVO COSTRUTTORE CHE RISOLVE IL CONFLITTO
+    public OutOfOrderDetector(long reportEvery) {
+        this.reportEvery = reportEvery;
+    }
 
     @Override
     public void open(Configuration parameters) {
@@ -75,7 +91,7 @@ public class OutOfOrderDetector
                 maxLatenessMs = latenessMs;
             }
 
-            System.out.println(
+            /*System.out.println(
                     "\n⚠️ OUT OF ORDER EVENT DETECTED\n" +
                             "Carrier        : " + event.getCarrier() + "\n" +
                             "Event Time     : " + event.getEventTime() + "\n" +
@@ -83,14 +99,25 @@ public class OutOfOrderDetector
                             "Max seen ms    : " + maxMs + "\n" +
                             "Lateness       : " + latenessMs + " ms\n" +
                             "Origin airport : " + event.getOriginAirportId() + "\n"
-            );
+            );*/
+
+            LOG.warn(
+    "OUT_OF_ORDER subtask={} carrier={} eventTime={} currentMs={} maxMs={} latenessMs={} originAirport={}",
+    getRuntimeContext().getIndexOfThisSubtask(),
+    event.getCarrier(),
+    event.getEventTime(),
+    currentMs,
+    maxMs,
+    latenessMs,
+    event.getOriginAirportId()
+        );
         } else {
 
             maxTimestampState.update(currentMs);
         }
 
         // Report periodico
-        if (totalEvents % REPORT_EVERY == 0) {
+        if (totalEvents % reportEvery == 0) {
 
             double percentage =
                     (100.0 * outOfOrderEvents) / totalEvents;
@@ -100,7 +127,7 @@ public class OutOfOrderDetector
                             ? 0
                             : ((double) totalLatenessMs / outOfOrderEvents);
 
-            System.out.println(
+            /*System.out.println(
                     "\n========================================\n" +
                             " OUT-OF-ORDER REPORT\n" +
                             "========================================\n" +
@@ -110,7 +137,20 @@ public class OutOfOrderDetector
                             "Max lateness         : " + maxLatenessMs + " ms\n" +
                             "Average lateness     : " + String.format("%.2f", avgLateness) + " ms\n" +
                             "========================================\n"
-            );
+            );*/
+            LOG.info(
+    "OUT_OF_ORDER_REPORT subtask={} processed={} outOfOrder={} percentage={} maxLatenessMs={} avgLatenessMs={}",
+    getRuntimeContext().getIndexOfThisSubtask(),
+    totalEvents,
+    outOfOrderEvents,
+    over1s,
+    over5s,
+    over10s,
+    over30s,
+    String.format("%.4f", percentage),
+    maxLatenessMs,
+    String.format("%.2f", avgLateness)
+        );
         }
 
         out.collect(event);
