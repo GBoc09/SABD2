@@ -1,6 +1,8 @@
 package it.uniroma2.sabd.flink;
 
 import it.uniroma2.sabd.config.AppConfig;
+import it.uniroma2.sabd.flink.metrics.LatencyMonitor;
+import it.uniroma2.sabd.flink.metrics.ThroughputMonitor;
 import it.uniroma2.sabd.model.FlightEvent;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.connector.kafka.source.KafkaSource;
