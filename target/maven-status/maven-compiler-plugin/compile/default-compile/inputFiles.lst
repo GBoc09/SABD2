@@ -1,9 +1,0 @@
-/home/simone/IdeaProjects/SABD2/src/main/java/it/uniroma2/sabd/utils/EventTimeBuilder.java
-/home/simone/IdeaProjects/SABD2/src/main/java/it/uniroma2/sabd/config/AppConfig.java
-/home/simone/IdeaProjects/SABD2/src/main/java/it/uniroma2/sabd/replay/ReplayApplication.java
-/home/simone/IdeaProjects/SABD2/src/main/java/it/uniroma2/sabd/kafka/KafkaTopicManager.java
-/home/simone/IdeaProjects/SABD2/src/main/java/it/uniroma2/sabd/model/FlightEvent.java
-/home/simone/IdeaProjects/SABD2/src/main/java/it/uniroma2/sabd/kafka/KafkaFlightProducer.java
-/home/simone/IdeaProjects/SABD2/src/main/java/it/uniroma2/sabd/replay/ReplayEngine.java
-/home/simone/IdeaProjects/SABD2/src/main/java/it/uniroma2/sabd/replay/loader/HdfsFlightLoader.java
-/home/simone/IdeaProjects/SABD2/src/main/java/it/uniroma2/sabd/flink/FlinkKafkaConsumerJob.java
