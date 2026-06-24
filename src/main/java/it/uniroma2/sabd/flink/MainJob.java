@@ -88,14 +88,7 @@ public class MainJob {
     }
     
     private static WatermarkStrategy<FlightEvent> createEventTimeAssigner(AppConfig config) {
-        return WatermarkStrategy
-                .<FlightEvent>forBoundedOutOfOrderness(
-                        Duration.ofMillis(config.getWatermarkMaxOutOfOrderMs()))
-                .withIdleness(Duration.ofSeconds(30))
-                .withTimestampAssigner((event, previousTimestamp) ->           
-                        event.getEventTime()
-                                .toInstant(ZoneOffset.UTC)
-                                .toEpochMilli());
+        return config.getWatermarkStrategy().create();
     }
 
     private static void printStartupConfig(AppConfig config) {
