@@ -7,8 +7,6 @@ import it.uniroma2.sabd.flink.metrics.ThroughputMonitor;
 import it.uniroma2.sabd.flink.serialization.FlightEventDeserializer;
 import it.uniroma2.sabd.flink.source.FlightKafkaSourceFactory;
 import it.uniroma2.sabd.model.FlightEvent;
-import java.time.Duration;
-import java.time.ZoneOffset;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -69,14 +67,7 @@ public class MainJob {
     }
     
     private static WatermarkStrategy<FlightEvent> createEventTimeAssigner(AppConfig config) {
-        return WatermarkStrategy
-                .<FlightEvent>forBoundedOutOfOrderness(
-                        Duration.ofMillis(config.getWatermarkMaxOutOfOrderMs()))
-                .withIdleness(Duration.ofSeconds(30))
-                .withTimestampAssigner((event, previousTimestamp) ->           
-                        event.getEventTime()
-                                .toInstant(ZoneOffset.UTC)
-                                .toEpochMilli());
+        return config.getWatermarkStrategy().create();
     }
 
     private static void printStartupConfig(AppConfig config) {

@@ -1,8 +1,11 @@
 package it.uniroma2.sabd.config;
 
+import it.uniroma2.sabd.flink.watermark.BoundedOutOfOrderStrategy;
+import it.uniroma2.sabd.flink.watermark.CustomStrategy;
 import org.apache.flink.api.java.utils.ParameterTool;
 import java.io.InputStream;
 import java.util.Properties;
+import it.uniroma2.sabd.flink.watermark.WatermarkFactory;
 
 public class AppConfig {
 
@@ -17,9 +20,9 @@ public class AppConfig {
     private final long metricsThroughputIntervalMs;
     private final long metricsLatencyIntervalMs;
     private final long oooReportEveryEvents;
-
+    Properties props = new Properties();
     private AppConfig(ParameterTool params) {
-        Properties props = new Properties();
+        //Properties props = new Properties();
         try (InputStream input = AppConfig.class
                 .getClassLoader()
                 .getResourceAsStream("application.properties")) {
@@ -52,6 +55,14 @@ public class AppConfig {
 
         this.oooReportEveryEvents = Long.parseLong(
                 props.getProperty("metrics.ooo.report.every.events", "1000"));
+    }
+    public WatermarkFactory getWatermarkStrategy() {
+        String strategy = props.getProperty("flink.watermark.strategy", "bounded");
+        switch (strategy) {
+            case "custom": return new CustomStrategy();
+            case "bounded":
+            default:          return new BoundedOutOfOrderStrategy(watermarkMaxOutOfOrderMs);
+        }
     }
 
     public static AppConfig fromArgs(String[] args) {
