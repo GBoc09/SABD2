@@ -69,14 +69,17 @@ final class GlobalTDigestProcessFunction extends KeyedProcessFunction<Query3Key,
             stats.digest.compress();
 
             Query3Key key = ctx.getCurrentKey();
-            out.collect(Query3GlobalStats.fromDigest(
+            out.collect(new Query3GlobalStats(
                     Instant.ofEpochMilli(windowStart),
                     Instant.ofEpochMilli(timestamp),
                     key.getAirline(),
                     key.getDepartureHour(),
                     stats.count,
                     stats.min,
-                    stats.digest,
+                    quantile(stats.digest, 0.25),
+                    quantile(stats.digest, 0.50),
+                    quantile(stats.digest, 0.75),
+                    quantile(stats.digest, 0.90),
                     stats.max));
 
             statsState.update(new Query3AggregatedStats(
@@ -121,5 +124,12 @@ final class GlobalTDigestProcessFunction extends KeyedProcessFunction<Query3Key,
                 .plusMonths(1)
                 .toInstant()
                 .toEpochMilli();
+    }
+
+    private double quantile(TDigest digest, double q) {
+        if (digest == null || digest.size() == 0) {
+            return 0.0;
+        }
+        return digest.quantile(q);
     }
 }

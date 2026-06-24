@@ -1,6 +1,5 @@
 package it.uniroma2.sabd.model;
 
-import com.tdunning.math.stats.TDigest;
 import java.time.Instant;
 import java.util.Locale;
 
@@ -44,37 +43,6 @@ public class Query3Stats {
         this.p75_dep_delay = p75_dep_delay;
         this.p90_dep_delay = p90_dep_delay;
         this.max_dep_delay = max_dep_delay;
-    }
-
-    // Materializza i percentili approssimati dal TDigest della finestra.
-    public static Query3Stats fromDigest(
-            Instant windowStart,
-            Instant windowEnd,
-            String airline,
-            int departureHour,
-            long num_flights,
-            double min_dep_delay,
-            TDigest digest,
-            double max_dep_delay) {
-        return new Query3Stats(
-                windowStart,
-                windowEnd,
-                airline,
-                departureHour,
-                num_flights,
-                min_dep_delay,
-                quantile(digest, 0.25),
-                quantile(digest, 0.50),
-                quantile(digest, 0.75),
-                quantile(digest, 0.90),
-                max_dep_delay);
-    }
-
-    protected static double quantile(TDigest digest, double q) {
-        if (digest == null || digest.size() == 0) {
-            return 0.0;
-        }
-        return digest.quantile(q);
     }
 
     // final output format for Query3 results

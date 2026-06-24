@@ -1,5 +1,6 @@
 package it.uniroma2.sabd.flink.query.query3;
 
+import com.tdunning.math.stats.TDigest;
 import it.uniroma2.sabd.model.Query3Stats;
 import java.time.Instant;
 import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
@@ -16,15 +17,25 @@ final class FinalizeQuery3Stats implements WindowFunction<Query3AggregatedStats,
             Collector<Query3Stats> out) {
         Query3AggregatedStats stats = aggregatedStats.iterator().next();
 
-        out.collect(Query3Stats.fromDigest(
+        out.collect(new Query3Stats(
                 Instant.ofEpochMilli(window.getStart()),
                 Instant.ofEpochMilli(window.getEnd()),
                 key.getAirline(),
                 key.getDepartureHour(),
                 stats.count,
                 stats.min,
-                stats.digest,
+                quantile(stats.digest, 0.25),
+                quantile(stats.digest, 0.50),
+                quantile(stats.digest, 0.75),
+                quantile(stats.digest, 0.90),
                 stats.max));
+    }
+
+    private double quantile(TDigest digest, double q) {
+        if (digest == null || digest.size() == 0) {
+            return 0.0;
+        }
+        return digest.quantile(q);
     }
 
 }

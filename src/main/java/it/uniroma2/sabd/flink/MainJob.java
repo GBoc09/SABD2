@@ -12,9 +12,6 @@ import it.uniroma2.sabd.flink.process.OutOfOrderDetector;
 import it.uniroma2.sabd.flink.process.OutOfOrderEvent;
 import it.uniroma2.sabd.flink.process.OutOfOrderStatisticProcessor;
 
-
-import java.time.Duration;
-import java.time.ZoneOffset;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.streaming.api.datastream.DataStream;
