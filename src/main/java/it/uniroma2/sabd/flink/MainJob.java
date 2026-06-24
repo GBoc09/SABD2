@@ -7,6 +7,12 @@ import it.uniroma2.sabd.flink.metrics.ThroughputMonitor;
 import it.uniroma2.sabd.flink.serialization.FlightEventDeserializer;
 import it.uniroma2.sabd.flink.source.FlightKafkaSourceFactory;
 import it.uniroma2.sabd.model.FlightEvent;
+
+import it.uniroma2.sabd.flink.process.OutOfOrderDetector;
+import it.uniroma2.sabd.flink.process.OutOfOrderEvent;
+import it.uniroma2.sabd.flink.process.OutOfOrderStatisticProcessor;
+
+
 import java.time.Duration;
 import java.time.ZoneOffset;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
@@ -50,6 +56,19 @@ public class MainJob {
                 .process(new ThroughputMonitor<>("ingresso",
                         config.getMetricsThroughputIntervalMs()))
                 .name("Throughput Monitor");
+
+        DataStream<OutOfOrderEvent> outOfOrderStream =
+        monitoredStream
+                .keyBy(event -> "GLOBAL")
+                .process(new OutOfOrderDetector());
+
+        outOfOrderStream
+                .keyBy(event -> "GLOBAL")
+                .process(
+                new OutOfOrderStatisticProcessor(
+                        config.getOooReportEveryEvents()))
+                .name("Out Of Order Statistics");
+
 
         return monitoredStream                                               
                 .assignTimestampsAndWatermarks(createEventTimeAssigner(config))
