@@ -1,11 +1,12 @@
 package it.uniroma2.sabd.flink.query.query1;
 
+import static it.uniroma2.sabd.flink.query.TargetAirlines.TARGET_AIRLINES;
+
 import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.sink.QuerySinks;
 import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.model.Query1Stats;
 import java.time.Duration;
-import java.util.Set;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 
@@ -23,9 +24,6 @@ public final class Query1 {
      *      - il tasso di partenze in ritardo, definito come percentuale di voli non cancellati con DEP DELAY
      *        maggiore di 15 minuti.
      */
-
-    private static final Set<String> TARGET_AIRLINES = Set.of("AA", "DL", "UA", "WN");
-
     private Query1() {
     }
 

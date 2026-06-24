@@ -87,6 +87,14 @@
             <artifactId>flink-connector-files</artifactId>
             <version>1.19.1</version>
         </dependency>
+
+        <!-- Source: https://mvnrepository.com/artifact/com.tdunning/t-digest -->
+        <dependency>
+            <groupId>com.tdunning</groupId>
+            <artifactId>t-digest</artifactId>
+            <version>3.3</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
