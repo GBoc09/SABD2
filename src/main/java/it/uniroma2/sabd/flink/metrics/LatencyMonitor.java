@@ -4,6 +4,9 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.util.Collector;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Operatore passthrough che misura la latenza di processamento.
  * Confronta il processing time (orologio reale Flink) con un campo
@@ -19,6 +22,9 @@ public class LatencyMonitor<T extends HasProducedAt> extends ProcessFunction<T, 
     private transient long minLatencyMs;
     private transient long maxLatencyMs;
     private transient long windowStartMs;
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(LatencyMonitor.class);
 
     public LatencyMonitor(String label) {
         this(label, 5_000);
@@ -51,7 +57,19 @@ public class LatencyMonitor<T extends HasProducedAt> extends ProcessFunction<T, 
 
         long now = System.currentTimeMillis();
         if (now - windowStartMs >= reportEveryMs) {
-            System.out.printf(
+            double avgLatency =
+        totalEvents > 0 ? (double) totalLatencyMs / totalEvents : 0;
+
+        LOG.info(
+        "LATENCY_MONITOR | label={} | min={}ms | max={}ms | avg={}ms | events={}",
+            label,
+            minLatencyMs,
+            maxLatencyMs,
+            String.format("%.2f", avgLatency),
+            totalEvents
+        );
+
+            /*System.out.printf(
                     "%n[LATENCY] %s%n" +
                             "  Min         : %d ms%n" +
                             "  Max         : %d ms%n" +
@@ -62,7 +80,7 @@ public class LatencyMonitor<T extends HasProducedAt> extends ProcessFunction<T, 
                     maxLatencyMs,
                     totalEvents > 0 ? (double) totalLatencyMs / totalEvents : 0,
                     totalEvents
-            );
+            );*/
             windowStartMs = now;
         }
 

@@ -7,6 +7,14 @@ import it.uniroma2.sabd.flink.metrics.ThroughputMonitor;
 import it.uniroma2.sabd.flink.serialization.FlightEventDeserializer;
 import it.uniroma2.sabd.flink.source.FlightKafkaSourceFactory;
 import it.uniroma2.sabd.model.FlightEvent;
+
+import it.uniroma2.sabd.flink.process.OutOfOrderDetector;
+import it.uniroma2.sabd.flink.process.OutOfOrderEvent;
+import it.uniroma2.sabd.flink.process.OutOfOrderStatisticProcessor;
+
+
+import java.time.Duration;
+import java.time.ZoneOffset;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -49,6 +57,19 @@ public class MainJob {
                         config.getMetricsThroughputIntervalMs()))
                 .name("Throughput Monitor");
 
+        DataStream<OutOfOrderEvent> outOfOrderStream =
+        monitoredStream
+                .keyBy(event -> "GLOBAL")
+                .process(new OutOfOrderDetector());
+
+        outOfOrderStream
+                .keyBy(event -> "GLOBAL")
+                .process(
+                new OutOfOrderStatisticProcessor(
+                        config.getOooReportEveryEvents()))
+                .name("Out Of Order Statistics");
+
+
         return monitoredStream                                               
                 .assignTimestampsAndWatermarks(createEventTimeAssigner(config))
                 .name("Assign Event Time");
@@ -67,7 +88,14 @@ public class MainJob {
     }
     
     private static WatermarkStrategy<FlightEvent> createEventTimeAssigner(AppConfig config) {
-        return config.getWatermarkStrategy().create();
+        return WatermarkStrategy
+                .<FlightEvent>forBoundedOutOfOrderness(
+                        Duration.ofMillis(config.getWatermarkMaxOutOfOrderMs()))
+                .withIdleness(Duration.ofSeconds(30))
+                .withTimestampAssigner((event, previousTimestamp) ->           
+                        event.getEventTime()
+                                .toInstant(ZoneOffset.UTC)
+                                .toEpochMilli());
     }
 
     private static void printStartupConfig(AppConfig config) {

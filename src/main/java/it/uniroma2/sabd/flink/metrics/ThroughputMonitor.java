@@ -4,6 +4,9 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.util.Collector;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Operatore passthrough che misura il throughput della pipeline.
  * Non modifica gli eventi — li conta e li riemette invariati.
@@ -19,6 +22,9 @@ public class ThroughputMonitor<T> extends ProcessFunction<T, T> {
     private transient long windowEvents;
     private transient long startMs;
     private transient long windowStartMs;
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(ThroughputMonitor.class);
 
     public ThroughputMonitor(String label, long reportIntervalMs) {
         this.label = label;
@@ -45,13 +51,21 @@ public class ThroughputMonitor<T> extends ProcessFunction<T, T> {
             double instantThroughput = (windowEvents * 1000.0) / windowElapsed;
             double avgThroughput     = (totalEvents  * 1000.0) / (now - startMs);
 
-            System.out.printf(
+           /* System.out.printf(
                     "%n[THROUGHPUT] %s%n" +
                             "  Istantaneo : %.1f eventi/sec (ultimi %.1f sec)%n" +
                             "  Medio      : %.1f eventi/sec (totale %d eventi)%n",
                     label,
                     instantThroughput, windowElapsed / 1000.0,
                     avgThroughput, totalEvents
+            ); */ 
+             LOG.info(
+                    "THROUGHPUT_MONITOR label={} instant={} ev/sec windowSec={} avg={} ev/sec totalEvents={}",
+                    label,
+                    String.format("%.1f", instantThroughput),
+                    String.format("%.1f", windowElapsed / 1000.0),
+                    String.format("%.1f", avgThroughput),
+                    totalEvents
             );
 
             windowEvents  = 0;
