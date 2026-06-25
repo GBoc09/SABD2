@@ -21,8 +21,7 @@ import org.apache.flink.util.Collector;
 final class RankingProcessFunction
         extends KeyedProcessFunction<Long, Query2Stats, Query2Stats> {
 
-    private static final int TOP_N        = 10;
-    private static final long TIMER_DELAY = 100L; // ms processing time    da vedere valore ottimale
+    private static final int TOP_N = 10;
 
     private ListState<Query2Stats> airportsState;
 
@@ -39,10 +38,11 @@ final class RankingProcessFunction
             Collector<Query2Stats> out) throws Exception {
 
         airportsState.add(stats);
-        // Aggiorna il timer ad ogni evento: il timer parte sempre
-        // TIMER_DELAY ms dopo l'ultimo evento della finestra
-        ctx.timerService().registerProcessingTimeTimer(
-                ctx.timerService().currentProcessingTime() + TIMER_DELAY);
+
+        // Impostiamo il timer al termine esatto della finestra (usando il watermark).
+        // Flink garantirà che scatti quando è sicuro che non ci siano altri dati
+        // validi in arrivo per questa finestra. Aggiungiamo 1ms per sicurezza.
+        ctx.timerService().registerEventTimeTimer(stats.getWindowEndEpoch() + 1);
     }
 
     @Override
@@ -57,7 +57,14 @@ final class RankingProcessFunction
 
         if (airports.isEmpty()) return;
 
-        airports.sort(Comparator.comparingLong(Query2Stats::getSevereDelays).reversed());
+        // Sort descending per severeDelays, e in caso di parità per depDelayMean
+        airports.sort((a, b) -> {
+            int cmp = Long.compare(b.getSevereDelays(), a.getSevereDelays());
+            if (cmp == 0) {
+                return Double.compare(b.getDepDelayMean(), a.getDepDelayMean());
+            }
+            return cmp;
+        });
 
         int rank = 1;
         for (Query2Stats stats : airports.subList(0, Math.min(TOP_N, airports.size()))) {

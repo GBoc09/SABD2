@@ -15,6 +15,15 @@ public class FlightEvent implements HasProducedAt {
     private double cancelled;
     private double diverted;
 
+    public int getDestAirportId() {
+        return destAirportId;
+    }
+
+    public void setDestAirportId(int destAirportId) {
+        this.destAirportId = destAirportId;
+    }
+
+    private int destAirportId;
     // Metadato di pipeline: timestamp ms in cui il producer ha inviato
     // questo evento a Kafka. Non fa parte del dominio del volo.
     // Valorizzato da KafkaFlightProducer con System.currentTimeMillis().

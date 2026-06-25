@@ -18,9 +18,9 @@ import org.apache.flink.util.Collector;
 /**
  * Finestra "dall'inizio del dataset" per Q2.
  * Stesso pattern di GlobalTDigestProcessFunction:
- *   - KeyedProcessFunction (chiave = originAirportId)
- *   - ValueState per lo stato accumulato
- *   - Timer mensile su event time per emettere risultati periodici
+ * - KeyedProcessFunction (chiave = originAirportId)
+ * - ValueState per lo stato accumulato
+ * - Timer mensile su event time per emettere risultati periodici
  */
 final class GlobalQuery2ProcessFunction
         extends KeyedProcessFunction<Integer, FlightEvent, Query2Stats> {
@@ -36,49 +36,36 @@ final class GlobalQuery2ProcessFunction
     @Override
     public void open(Configuration parameters) {
         accState = getRuntimeContext().getState(
-                new ValueStateDescriptor<>("q2-global-acc", Query2Accumulator.State.class));
+                new ValueStateDescriptor<>("global-q2-acc", Query2Accumulator.State.class));
         windowStartState = getRuntimeContext().getState(
-                new ValueStateDescriptor<>("q2-global-window-start", Long.class));
+                new ValueStateDescriptor<>("global-q2-start", Long.class));
         nextTimerState = getRuntimeContext().getState(
-                new ValueStateDescriptor<>("q2-global-next-timer", Long.class));
+                new ValueStateDescriptor<>("global-q2-timer", Long.class));
     }
 
     @Override
-    public void processElement(
-            FlightEvent event,
-            Context ctx,
-            Collector<Query2Stats> out) throws Exception {
-
-        long eventMs = ctx.timestamp() != null
-                ? ctx.timestamp()
-                : event.getEventTime().toInstant(ZoneOffset.UTC).toEpochMilli();
-
-        if (windowStartState.value() == null) {
-            windowStartState.update(eventMs);
-        }
-
-        if (nextTimerState.value() == null) {
-            long next = nextMonthlyTimer(eventMs);
-            ctx.timerService().registerEventTimeTimer(next);
-            nextTimerState.update(next);
-        }
-
+    public void processElement(FlightEvent event, Context ctx, Collector<Query2Stats> out) throws Exception {
         Query2Accumulator.State state = accState.value();
-        if (state == null) state = new Query2Accumulator.State();
 
-        state.originAirportId = event.getOriginAirportId();
+        if (state == null) {
+            state = new Query2Accumulator.State();
+            state.originAirportId = event.getOriginAirportId();
+            windowStartState.update(event.getEventTime().toEpochSecond(ZoneOffset.UTC) * 1000L);
+        }
+
         state.numFlights++;
         state.depDelaySum += event.getDepDelay();
-        state.depDelayMax  = Math.max(state.depDelayMax, event.getDepDelay());
+        state.depDelayMax = Math.max(state.depDelayMax, event.getDepDelay());
 
         if (event.getDepDelay() > SEVERE_DELAY_THRESHOLD) {
             state.severeDelays++;
             state.delayedFlights.add(
                     new DelayedFlight(
                             event.getCarrier(),
-                            event.getOriginAirportId(),
+                            event.getDestAirportId(), // FIX: Destinazione, non Origine
                             event.getDepDelay()));
-            if (state.delayedFlights.size() > MAX_DELAYED_FLIGHTS * 2) {
+
+            if (state.delayedFlights.size() > MAX_DELAYED_FLIGHTS) {
                 state.delayedFlights.sort(
                         Comparator.comparingDouble(DelayedFlight::getDepDelay).reversed());
                 state.delayedFlights = new ArrayList<>(
@@ -87,6 +74,13 @@ final class GlobalQuery2ProcessFunction
         }
 
         accState.update(state);
+
+        Long nextTimer = nextTimerState.value();
+        if (nextTimer == null) {
+            long next = nextMonthlyTimer(ctx.timestamp());
+            ctx.timerService().registerEventTimeTimer(next);
+            nextTimerState.update(next);
+        }
     }
 
     @Override
@@ -107,7 +101,8 @@ final class GlobalQuery2ProcessFunction
 
             out.collect(new Query2Stats(
                     Instant.ofEpochMilli(windowStart),
-                    state.originAirportId,
+                    Instant.ofEpochMilli(timestamp), // FIX: Il timestamp di attivazione fa da "windowEnd"
+                    state.originAirportId,           // FIX: Rimossa la virgola errata di sintassi "state.,"
                     state.numFlights,
                     state.severeDelays,
                     state.numFlights > 0 ? state.depDelaySum / state.numFlights : 0.0,

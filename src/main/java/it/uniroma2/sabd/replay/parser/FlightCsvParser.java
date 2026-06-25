@@ -7,7 +7,7 @@ public class FlightCsvParser {
 
     public static FlightEvent parseLine(String line) {
         String[] values = line.split(",", -1);
-        if (values.length < 9) return null;
+        if (values.length < 10) return null;
 
         FlightEvent event = new FlightEvent();
         event.setYear(parseIntOrZero(values[0]));
@@ -19,6 +19,7 @@ public class FlightCsvParser {
         event.setDepDelay(parseDoubleOrZero(values[6]));
         event.setCancelled(parseDoubleOrZero(values[7]));
         event.setDiverted(parseDoubleOrZero(values[8]));
+        event.setDestAirportId(parseIntOrZero(values[9]));
 
         event.setEventTime(EventTimeBuilder.build(
                 event.getYear(), event.getMonth(), event.getDayOfMonth(), event.getCrsDepTime()

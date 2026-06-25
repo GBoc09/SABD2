@@ -29,6 +29,7 @@ final class FinalizeQuery2Stats
 
         out.collect(new Query2Stats(
                 Instant.ofEpochMilli(window.getStart()),
+                Instant.ofEpochMilli(window.getEnd()), // FIX: Inserito windowEnd qui!
                 stats.originAirportId,
                 stats.numFlights,
                 stats.severeDelays,
