@@ -1,6 +1,6 @@
 package it.uniroma2.sabd.flink.query.query1;
 
-import it.uniroma2.sabd.model.Query1Stats;
+import it.uniroma2.sabd.flink.model.Query1Stats;
 import java.time.Instant;
 import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;

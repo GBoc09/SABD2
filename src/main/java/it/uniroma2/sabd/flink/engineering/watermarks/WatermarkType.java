@@ -1,4 +1,4 @@
-package it.uniroma2.sabd.flink.watermark;
+package it.uniroma2.sabd.flink.engineering.watermarks;
 
 public enum WatermarkType {
     WM15,

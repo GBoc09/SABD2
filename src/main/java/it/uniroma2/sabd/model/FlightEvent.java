@@ -1,6 +1,5 @@
 package it.uniroma2.sabd.model;
 
-import it.uniroma2.sabd.flink.metrics.HasProducedAt;
 import java.time.LocalDateTime;
 
 public class FlightEvent implements HasProducedAt {

@@ -1,9 +1,9 @@
-package it.uniroma2.sabd.flink.watermark;
+package it.uniroma2.sabd.flink.engineering.watermarks;
 
 import it.uniroma2.sabd.config.AppConfig;
-import it.uniroma2.sabd.flink.watermark.WatermarkFactory;
-import it.uniroma2.sabd.flink.watermark.BoundedOutOfOrderStrategy;
-import it.uniroma2.sabd.flink.watermark.AdaptiveStrategy;
+import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkFactory;
+import it.uniroma2.sabd.flink.engineering.watermarks.BoundedOutOfOrderStrategy;
+import it.uniroma2.sabd.flink.engineering.watermarks.AdaptiveStrategy;
 
 public class WatermarkRegistry {
 

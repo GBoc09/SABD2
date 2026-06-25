@@ -1,4 +1,4 @@
-package it.uniroma2.sabd.flink.sink;
+package it.uniroma2.sabd.flink.io.sink;
 
 import org.apache.flink.api.common.serialization.SimpleStringEncoder;
 import org.apache.flink.connector.file.sink.FileSink;

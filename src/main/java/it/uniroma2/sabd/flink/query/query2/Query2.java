@@ -1,9 +1,9 @@
 package it.uniroma2.sabd.flink.query.query2;
 
 import it.uniroma2.sabd.config.AppConfig;
-import it.uniroma2.sabd.flink.sink.QuerySinks;
+import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.model.FlightEvent;
-import it.uniroma2.sabd.model.Query2Stats;
+import it.uniroma2.sabd.flink.model.Query2Stats;
 import java.time.Duration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;

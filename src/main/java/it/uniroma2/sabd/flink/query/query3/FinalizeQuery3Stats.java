@@ -1,7 +1,8 @@
 package it.uniroma2.sabd.flink.query.query3;
 
 import com.tdunning.math.stats.TDigest;
-import it.uniroma2.sabd.model.Query3Stats;
+import it.uniroma2.sabd.flink.model.Query3Key;
+import it.uniroma2.sabd.flink.model.Query3Stats;
 import java.time.Instant;
 import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;

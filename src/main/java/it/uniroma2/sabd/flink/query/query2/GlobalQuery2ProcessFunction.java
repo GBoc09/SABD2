@@ -1,8 +1,8 @@
 package it.uniroma2.sabd.flink.query.query2;
 
 import it.uniroma2.sabd.model.FlightEvent;
-import it.uniroma2.sabd.model.Query2Stats;
-import it.uniroma2.sabd.model.Query2Stats.DelayedFlight;
+import it.uniroma2.sabd.flink.model.Query2Stats;
+import it.uniroma2.sabd.flink.model.Query2Stats.DelayedFlight;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;

@@ -1,11 +1,11 @@
 package it.uniroma2.sabd.config;
 
-import it.uniroma2.sabd.flink.watermark.BoundedOutOfOrderStrategy;
-import it.uniroma2.sabd.flink.watermark.AdaptiveStrategy;
+import it.uniroma2.sabd.flink.engineering.watermarks.BoundedOutOfOrderStrategy;
+import it.uniroma2.sabd.flink.engineering.watermarks.AdaptiveStrategy;
 import org.apache.flink.api.java.utils.ParameterTool;
 import java.io.InputStream;
 import java.util.Properties;
-import it.uniroma2.sabd.flink.watermark.WatermarkFactory;
+import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkFactory;
 
 public class AppConfig {
 
@@ -19,6 +19,7 @@ public class AppConfig {
     // Metrics
     private final long metricsThroughputIntervalMs;
     private final long metricsLatencyIntervalMs;
+    private final String performanceOutputPath;
     private final long oooReportEveryEvents;
     Properties props = new Properties();
     private AppConfig(ParameterTool params) {
@@ -53,6 +54,10 @@ public class AppConfig {
         this.metricsLatencyIntervalMs = Long.parseLong(
                 props.getProperty("metrics.latency.report.interval.ms", "5000"));
 
+        this.performanceOutputPath = params.get("performance-output",
+                System.getenv().getOrDefault("PERFORMANCE_OUTPUT_PATH",
+                        props.getProperty("metrics.performance.output.path", "performance")));
+
         this.oooReportEveryEvents = Long.parseLong(
                 props.getProperty("metrics.ooo.report.every.events", "1000"));
     }
@@ -75,5 +80,6 @@ public class AppConfig {
     public long   getWatermarkMaxOutOfOrderMs()   { return watermarkMaxOutOfOrderMs; }
     public long   getMetricsThroughputIntervalMs(){ return metricsThroughputIntervalMs; }
     public long   getMetricsLatencyIntervalMs()   { return metricsLatencyIntervalMs; }
+    public String getPerformanceOutputPath()       { return performanceOutputPath; }
     public long   getOooReportEveryEvents()       { return oooReportEveryEvents; }
 }

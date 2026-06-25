@@ -1,4 +1,4 @@
-package it.uniroma2.sabd.model;
+package it.uniroma2.sabd.flink.model;
 
 import java.time.Instant;
 import java.util.Locale;

@@ -30,6 +30,7 @@ public class KafkaFlightProducer implements AutoCloseable {
 
     public void send(FlightEvent event) {
         try {
+            event.setProducedAt(System.currentTimeMillis());
             String json = mapper.writeValueAsString(event);
             producer.send(new ProducerRecord<>(topic, null, json));
         } catch (Exception e) {

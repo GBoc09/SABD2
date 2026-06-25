@@ -1,8 +1,9 @@
 package it.uniroma2.sabd.flink.query.query3;
 
 import com.tdunning.math.stats.TDigest;
+import it.uniroma2.sabd.flink.model.Query3GlobalStats;
+import it.uniroma2.sabd.flink.model.Query3Key;
 import it.uniroma2.sabd.model.FlightEvent;
-import it.uniroma2.sabd.model.Query3GlobalStats;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;

@@ -1,4 +1,4 @@
-package it.uniroma2.sabd.flink.serialization;
+package it.uniroma2.sabd.flink.io.kafka;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;

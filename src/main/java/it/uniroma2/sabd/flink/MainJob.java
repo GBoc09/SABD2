@@ -2,21 +2,24 @@ package it.uniroma2.sabd.flink;
 
 import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.controller.FlightQueryController;
-import it.uniroma2.sabd.flink.metrics.LatencyMonitor;
-import it.uniroma2.sabd.flink.metrics.ThroughputMonitor;
-import it.uniroma2.sabd.flink.serialization.FlightEventDeserializer;
-import it.uniroma2.sabd.flink.source.FlightKafkaSourceFactory;
+import it.uniroma2.sabd.flink.controller.LatencyMonitor;
+import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
+import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
+import it.uniroma2.sabd.flink.io.kafka.FlightEventDeserializer;
+import it.uniroma2.sabd.flink.io.kafka.FlightKafkaSourceFactory;
+import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.model.FlightEvent;
-import it.uniroma2.sabd.flink.watermark.WatermarkType;
-import it.uniroma2.sabd.flink.watermark.WatermarkRegistry;
+import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkType;
+import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkRegistry;
 
-import it.uniroma2.sabd.flink.process.OutOfOrderDetector;
-import it.uniroma2.sabd.flink.process.OutOfOrderEvent;
-import it.uniroma2.sabd.flink.process.OutOfOrderStatisticProcessor;
+import it.uniroma2.sabd.flink.controller.OutOfOrderDetector;
+import it.uniroma2.sabd.flink.model.OutOfOrderEvent;
+import it.uniroma2.sabd.flink.controller.OutOfOrderStatisticProcessor;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 
@@ -57,13 +60,22 @@ public class MainJob {
                 .map(new FlightEventDeserializer())
                 .name("Deserialize Flight Events");
 
-        DataStream<FlightEvent> monitoredStream = deserializedStream
-                .process(new LatencyMonitor<>("kafka->flink",
+        SingleOutputStreamOperator<FlightEvent> latencyMonitoredStream = deserializedStream
+                .process(new LatencyMonitor<>("producer->flink",
                         config.getMetricsLatencyIntervalMs()))
-                .name("Latency Monitor")
+                .name("Latency Monitor");
+
+        SingleOutputStreamOperator<FlightEvent> monitoredStream = latencyMonitoredStream
                 .process(new ThroughputMonitor<>("ingresso",
                         config.getMetricsThroughputIntervalMs()))
                 .name("Throughput Monitor");
+
+        PerformanceSinks.writeLatencyCsv(
+                latencyMonitoredStream.getSideOutput(PerformanceMetricTags.LATENCY),
+                config.getPerformanceOutputPath());
+        PerformanceSinks.writeThroughputCsv(
+                monitoredStream.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                config.getPerformanceOutputPath());
 
         DataStream<OutOfOrderEvent> outOfOrderStream =
         monitoredStream
@@ -103,5 +115,6 @@ public class MainJob {
         System.out.println(" - Kafka Brokers: " + config.getKafkaBootstrapServers());
         System.out.println(" - Kafka Topic:   " + config.getKafkaTopic());
         System.out.println(" - Parallelismo:  " + config.getFlinkParallelism());
+        System.out.println(" - Performance:   " + config.getPerformanceOutputPath());
     }
 }

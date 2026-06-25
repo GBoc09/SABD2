@@ -1,4 +1,4 @@
-package it.uniroma2.sabd.flink.source;
+package it.uniroma2.sabd.flink.io.kafka;
 
 import it.uniroma2.sabd.config.AppConfig;
 

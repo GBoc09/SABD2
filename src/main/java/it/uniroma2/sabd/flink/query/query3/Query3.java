@@ -3,10 +3,11 @@ package it.uniroma2.sabd.flink.query.query3;
 import static it.uniroma2.sabd.flink.query.TargetAirlines.TARGET_AIRLINES;
 
 import it.uniroma2.sabd.config.AppConfig;
-import it.uniroma2.sabd.flink.sink.QuerySinks;
+import it.uniroma2.sabd.flink.io.sink.QuerySinks;
+import it.uniroma2.sabd.flink.model.Query3GlobalStats;
+import it.uniroma2.sabd.flink.model.Query3Key;
+import it.uniroma2.sabd.flink.model.Query3Stats;
 import it.uniroma2.sabd.model.FlightEvent;
-import it.uniroma2.sabd.model.Query3GlobalStats;
-import it.uniroma2.sabd.model.Query3Stats;
 import java.time.Duration;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
