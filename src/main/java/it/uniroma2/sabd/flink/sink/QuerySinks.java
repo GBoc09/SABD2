@@ -11,7 +11,15 @@ public final class QuerySinks {
     public static FileSink<String> query1Csv(String watermark) {
         return csvSink("output/" + watermark + "/query1");
     }
-
+    public static FileSink<String> query2SixHoursCsv(String watermark) {
+        return csvSink("output/" + watermark + "/query2/6h");
+    }
+    public static FileSink<String> query2OneHourCsv(String watermark) {
+        return csvSink("output/" + watermark + "/query2/1h");
+    }
+    public static FileSink<String> query2GlobalCsv(String watermark) {
+        return csvSink("output/" + watermark + "/query2/global");
+    }
     public static FileSink<String> query3OneDayCsv(String watermark) {
         return csvSink("output/" + watermark + "/query3/1day");
     }
