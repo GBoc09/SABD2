@@ -17,7 +17,7 @@ public final class Query3 {
     private Query3() {
     }
 
-    public static void execute(DataStream<FlightEvent> flightStream, AppConfig config) {
+    public static void execute(DataStream<FlightEvent> flightStream, AppConfig config, String watermarkName) {
         /*
         La query Q3 si concentra sul calcolo in tempo reale della distribuzione dei ritardi in partenza per
         compagnia aerea e fascia oraria.
@@ -64,17 +64,17 @@ public final class Query3 {
 
         daily
                 .map(Query3Stats::toCSV)
-                .sinkTo(QuerySinks.query3OneDayCsv())
+                .sinkTo(QuerySinks.query3OneDayCsv(watermarkName))
                 .name("Query3 1-Day CSV Sink");
 
         weekly
                 .map(Query3Stats::toCSV)
-                .sinkTo(QuerySinks.query3SevenDaysCsv())
+                .sinkTo(QuerySinks.query3SevenDaysCsv(watermarkName))
                 .name("Query3 7-Day CSV Sink");
 
         global
                 .map(Query3GlobalStats::toCSV)
-                .sinkTo(QuerySinks.queryGlobalCsv())
+                .sinkTo(QuerySinks.queryGlobalCsv(watermarkName))
                 .name("Query3 Global CSV Sink");
 
     }

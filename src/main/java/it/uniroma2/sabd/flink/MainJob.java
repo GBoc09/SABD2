@@ -7,6 +7,8 @@ import it.uniroma2.sabd.flink.metrics.ThroughputMonitor;
 import it.uniroma2.sabd.flink.serialization.FlightEventDeserializer;
 import it.uniroma2.sabd.flink.source.FlightKafkaSourceFactory;
 import it.uniroma2.sabd.model.FlightEvent;
+import it.uniroma2.sabd.flink.watermark.WatermarkType;
+import it.uniroma2.sabd.flink.watermark.WatermarkRegistry;
 
 import it.uniroma2.sabd.flink.process.OutOfOrderDetector;
 import it.uniroma2.sabd.flink.process.OutOfOrderEvent;
@@ -28,15 +30,24 @@ public class MainJob {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(config.getFlinkParallelism());
 
-        DataStream<FlightEvent> flightStream = buildFlightStream(env, config);
+        DataStream<FlightEvent> rawStream = buildRawFlightStream(env, config);
 
-        FlightQueryController controller = new FlightQueryController(config);
-        controller.buildQueries(flightStream);
+        for (WatermarkType type : WatermarkType.values()) {
+                DataStream<FlightEvent> wmStream =
+                        rawStream.assignTimestampsAndWatermarks(
+                                WatermarkRegistry
+                                .get(type, config)
+                                .create());
+                FlightQueryController controller = new FlightQueryController(config, type.name());
+                controller.buildQueries(wmStream);
+                System.out.println("Avvio query con watermark: "+ type.name());
 
+        }
+            
         env.execute("Flight Out-Of-Order Monitor");
     }
 
-    private static DataStream<FlightEvent> buildFlightStream(
+    private static DataStream<FlightEvent> buildRawFlightStream(
             StreamExecutionEnvironment env,
             AppConfig config) {
 
@@ -67,14 +78,13 @@ public class MainJob {
                 .name("Out Of Order Statistics");
 
 
-        return monitoredStream                                               
-                .assignTimestampsAndWatermarks(createEventTimeAssigner(config))
-                .name("Assign Event Time");
+        return monitoredStream;                                              
+                /*.assignTimestampsAndWatermarks(createEventTimeAssigner(config))
+                .name("Assign Event Time");*/
     }
 
     private static DataStream<String> createKafkaStream(
-            StreamExecutionEnvironment env,
-            AppConfig config) {
+            StreamExecutionEnvironment env, AppConfig config) {
 
         KafkaSource<String> source = FlightKafkaSourceFactory.create(config);
 

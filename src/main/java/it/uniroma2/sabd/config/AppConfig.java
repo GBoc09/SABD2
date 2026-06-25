@@ -1,7 +1,7 @@
 package it.uniroma2.sabd.config;
 
 import it.uniroma2.sabd.flink.watermark.BoundedOutOfOrderStrategy;
-import it.uniroma2.sabd.flink.watermark.CustomStrategy;
+import it.uniroma2.sabd.flink.watermark.AdaptiveStrategy;
 import org.apache.flink.api.java.utils.ParameterTool;
 import java.io.InputStream;
 import java.util.Properties;
@@ -59,7 +59,7 @@ public class AppConfig {
     public WatermarkFactory getWatermarkStrategy() {
         String strategy = props.getProperty("flink.watermark.strategy", "bounded");
         switch (strategy) {
-            case "custom": return new CustomStrategy();
+            case "adaptive": return new AdaptiveStrategy();
             case "bounded":
             default:          return new BoundedOutOfOrderStrategy(watermarkMaxOutOfOrderMs);
         }

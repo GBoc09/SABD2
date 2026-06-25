@@ -27,7 +27,7 @@ public final class Query1 {
     private Query1() {
     }
 
-    public static void execute(DataStream<FlightEvent> flightStream, AppConfig config) {
+    public static void execute(DataStream<FlightEvent> flightStream, AppConfig config, String watermarkName) {
         DataStream<Query1Stats> stats = flightStream
                 .filter(event -> TARGET_AIRLINES.contains(event.getCarrier()))
                 .keyBy(FlightEvent::getCarrier)
@@ -39,7 +39,7 @@ public final class Query1 {
 
         stats
                 .map(Query1Stats::toCSV)
-                .sinkTo(QuerySinks.query1Csv())
+                .sinkTo(QuerySinks.query1Csv(watermarkName))
                 .name("Query1 CSV Sink");
     }
 }
