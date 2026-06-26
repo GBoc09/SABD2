@@ -1,8 +1,6 @@
 package it.uniroma2.sabd.flink.model;
 
 import java.time.Instant;
-import java.util.Locale;
-
 public class Query3GlobalStats extends Query3Stats {
 
     /*
@@ -38,9 +36,9 @@ public class Query3GlobalStats extends Query3Stats {
 
     @Override
     public String toCSV() {
-        return String.format(Locale.ROOT, "%s,%s,%s,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
-                windowStart.toString(),
-                windowEnd.toString(),
+        return new Query3Stats(
+                windowEnd,
+                windowEnd,
                 airline,
                 departureHour,
                 num_flights,
@@ -49,6 +47,6 @@ public class Query3GlobalStats extends Query3Stats {
                 p50_dep_delay,
                 p75_dep_delay,
                 p90_dep_delay,
-                max_dep_delay);
+                max_dep_delay).toCSV();
     }
 }

@@ -18,8 +18,8 @@ public class FlightCsvParser {
         event.setCrsDepTime(parseIntOrZero(values[5]));
         event.setDepDelay(parseDoubleOrZero(values[6]));
         event.setCancelled(parseDoubleOrZero(values[7]));
-        event.setDiverted(parseDoubleOrZero(values[8]));
-        event.setDestAirportId(parseIntOrZero(values[9]));
+        event.setDestAirportId(parseIntOrZero(values[8]));
+        event.setDiverted(parseDoubleOrZero(values[9]));
 
         event.setEventTime(EventTimeBuilder.build(
                 event.getYear(), event.getMonth(), event.getDayOfMonth(), event.getCrsDepTime()

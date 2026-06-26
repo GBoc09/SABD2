@@ -9,6 +9,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import org.apache.flink.api.common.state.MapState;
+import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.configuration.Configuration;
@@ -29,28 +32,28 @@ final class GlobalQuery2ProcessFunction
     private static final int    MAX_DELAYED_FLIGHTS    = 20;
     private static final int    MIN_FLIGHTS            = 30;
 
-    private ValueState<Query2Accumulator.State> accState;
-    private ValueState<Long> windowStartState;
+    private MapState<Long, Query2Accumulator.State> monthlyStatsState;
     private ValueState<Long> nextTimerState;
 
     @Override
     public void open(Configuration parameters) {
-        accState = getRuntimeContext().getState(
-                new ValueStateDescriptor<>("global-q2-acc", Query2Accumulator.State.class));
-        windowStartState = getRuntimeContext().getState(
-                new ValueStateDescriptor<>("global-q2-start", Long.class));
+        monthlyStatsState = getRuntimeContext().getMapState(
+                new MapStateDescriptor<>(
+                        "global-q2-monthly-stats",
+                        Long.class,
+                        Query2Accumulator.State.class));
         nextTimerState = getRuntimeContext().getState(
                 new ValueStateDescriptor<>("global-q2-timer", Long.class));
     }
 
     @Override
     public void processElement(FlightEvent event, Context ctx, Collector<Query2Stats> out) throws Exception {
-        Query2Accumulator.State state = accState.value();
-
+        long eventTimestamp = eventTimestamp(ctx, event);
+        long monthStart = monthStart(eventTimestamp);
+        Query2Accumulator.State state = monthlyStatsState.get(monthStart);
         if (state == null) {
             state = new Query2Accumulator.State();
             state.originAirportId = event.getOriginAirportId();
-            windowStartState.update(event.getEventTime().toEpochSecond(ZoneOffset.UTC) * 1000L);
         }
 
         state.numFlights++;
@@ -73,11 +76,11 @@ final class GlobalQuery2ProcessFunction
             }
         }
 
-        accState.update(state);
+        monthlyStatsState.put(monthStart, state);
 
         Long nextTimer = nextTimerState.value();
         if (nextTimer == null) {
-            long next = nextMonthlyTimer(ctx.timestamp());
+            long next = nextMonthlyTimer(eventTimestamp);
             ctx.timerService().registerEventTimeTimer(next);
             nextTimerState.update(next);
         }
@@ -89,10 +92,9 @@ final class GlobalQuery2ProcessFunction
             OnTimerContext ctx,
             Collector<Query2Stats> out) throws Exception {
 
-        Query2Accumulator.State state = accState.value();
-        Long windowStart = windowStartState.value();
+        Query2Accumulator.State state = cumulativeStatsBefore(timestamp, ctx.getCurrentKey());
 
-        if (state != null && state.numFlights >= MIN_FLIGHTS && windowStart != null) {
+        if (state.numFlights >= MIN_FLIGHTS) {
             state.delayedFlights.sort(
                     Comparator.comparingDouble(DelayedFlight::getDepDelay).reversed());
             List<DelayedFlight> top20 = state.delayedFlights.size() > MAX_DELAYED_FLIGHTS
@@ -100,9 +102,9 @@ final class GlobalQuery2ProcessFunction
                     : new ArrayList<>(state.delayedFlights);
 
             out.collect(new Query2Stats(
-                    Instant.ofEpochMilli(windowStart),
-                    Instant.ofEpochMilli(timestamp), // FIX: Il timestamp di attivazione fa da "windowEnd"
-                    state.originAirportId,           // FIX: Rimossa la virgola errata di sintassi "state.,"
+                    Instant.ofEpochMilli(timestamp),
+                    Instant.ofEpochMilli(timestamp),
+                    state.originAirportId,
                     state.numFlights,
                     state.severeDelays,
                     state.numFlights > 0 ? state.depDelaySum / state.numFlights : 0.0,
@@ -113,6 +115,51 @@ final class GlobalQuery2ProcessFunction
         long next = nextMonthlyTimer(timestamp);
         ctx.timerService().registerEventTimeTimer(next);
         nextTimerState.update(next);
+    }
+
+    private Query2Accumulator.State cumulativeStatsBefore(long snapshotTs, int originAirportId) throws Exception {
+        Query2Accumulator.State cumulative = new Query2Accumulator.State();
+        cumulative.originAirportId = originAirportId;
+
+        for (Map.Entry<Long, Query2Accumulator.State> entry : monthlyStatsState.entries()) {
+            if (entry.getKey() < snapshotTs) {
+                mergeInto(cumulative, entry.getValue());
+            }
+        }
+
+        return cumulative;
+    }
+
+    private void mergeInto(Query2Accumulator.State target, Query2Accumulator.State source) {
+        target.numFlights += source.numFlights;
+        target.severeDelays += source.severeDelays;
+        target.depDelaySum += source.depDelaySum;
+        target.depDelayMax = Math.max(target.depDelayMax, source.depDelayMax);
+        target.delayedFlights.addAll(source.delayedFlights);
+
+        if (target.delayedFlights.size() > MAX_DELAYED_FLIGHTS) {
+            target.delayedFlights.sort(
+                    Comparator.comparingDouble(DelayedFlight::getDepDelay).reversed());
+            target.delayedFlights = new ArrayList<>(
+                    target.delayedFlights.subList(0, MAX_DELAYED_FLIGHTS));
+        }
+    }
+
+    private long eventTimestamp(Context ctx, FlightEvent event) {
+        Long timestamp = ctx.timestamp();
+        if (timestamp != null) {
+            return timestamp;
+        }
+        return event.getEventTime().toInstant(ZoneOffset.UTC).toEpochMilli();
+    }
+
+    private long monthStart(long ts) {
+        return Instant.ofEpochMilli(ts)
+                .atZone(ZoneOffset.UTC)
+                .withDayOfMonth(1)
+                .truncatedTo(ChronoUnit.DAYS)
+                .toInstant()
+                .toEpochMilli();
     }
 
     private long nextMonthlyTimer(long ts) {

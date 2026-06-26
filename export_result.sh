@@ -21,8 +21,6 @@ QUERY2_HEADER="ts,rank,origin_airport_id,num_flights,severe_delays,dep_delay_mea
 
 WINDOW_HEADER="ts,airline,hour,count,min,p25,p50,p75,p90,max"
 
-GLOBAL_HEADER="global_start,snapshot_ts,airline,hour,count,min,p25,p50,p75,p90,max"
-
 cleanup_output() {
 
     echo "Pulizia output CSV precedenti..."
@@ -112,17 +110,11 @@ export_query3() {
     for WM in "${WM_LIST[@]}"; do
         for SUB in "${SUBDIRS[@]}"; do
 
-            HEADER="$WINDOW_HEADER"
-
-            if [ "$SUB" = "global" ]; then
-                HEADER="$GLOBAL_HEADER"
-            fi
-
             export_dataset \
                 "${OUTPUT_BASE}/${WM}/query3/${SUB}" \
                 "${STAGING_BASE_DIR}/query3/${WM}/${SUB}" \
                 "${RESULT_DEST_DIR}/query3/query3_${SUB}_${WM}.csv" \
-                "$HEADER" \
+                "$WINDOW_HEADER" \
                 "Query3 [$WM/$SUB]"
         done
     done

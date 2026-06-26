@@ -1,5 +1,6 @@
 package it.uniroma2.sabd.flink.model;
 
+import it.uniroma2.sabd.flink.io.sink.CsvValues;
 import java.io.Serializable;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -79,9 +80,9 @@ public class Query2Stats implements Serializable {
                 .map(DelayedFlight::toString)
                 .collect(Collectors.joining(", ")) + "]";
 
-        return String.format(Locale.US, "%s, %d, %d, %d, %d, %.2f, %.2f, %s",
+        return String.format(Locale.US, "%s,%d,%d,%d,%d,%.2f,%.2f,%s",
                 FORMATTER.format(windowStart), rank, originAirportId,
-                numFlights, severeDelays, depDelayMean, depDelayMax, delayedStr);
+                numFlights, severeDelays, depDelayMean, depDelayMax, CsvValues.text(delayedStr));
     }
 
     /** Volo con ritardo significativo — inner class come in Q3AggregatedStats. */

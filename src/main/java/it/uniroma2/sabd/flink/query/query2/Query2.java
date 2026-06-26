@@ -53,7 +53,7 @@ public final class Query2 {
                 .keyBy(FlightEvent::getOriginAirportId)
                 .process(new GlobalQuery2ProcessFunction())
                 .name("Q2 global accumulate")
-                .keyBy(Query2Stats::getWindowStartEpoch)
+                .keyBy(Query2Stats::getWindowEndEpoch)
                 .process(new RankingProcessFunction())
                 .name("Q2 ranking global");
 

@@ -31,7 +31,7 @@ final class Query2Accumulator
             state.delayedFlights.add(
                     new DelayedFlight(
                             event.getCarrier(),
-                            event.getOriginAirportId(),
+                            event.getDestAirportId(),
                             event.getDepDelay()));
 
             // Appena superiamo MAX, ordiniamo e tagliamo subito.
@@ -48,7 +48,8 @@ final class Query2Accumulator
 
     @Override
     public Query2AggregatedStats getResult(State state) {
-        // La lista è già ordinata e tagliata a MAX — nessun sort extra necessario.
+        state.delayedFlights.sort(
+                Comparator.comparingDouble(DelayedFlight::getDepDelay).reversed());
         return new Query2AggregatedStats(
                 state.originAirportId,
                 state.numFlights,

@@ -36,14 +36,33 @@ public class MainJob {
         DataStream<FlightEvent> rawStream = buildRawFlightStream(env, config);
 
         for (WatermarkType type : WatermarkType.values()) {
-                DataStream<FlightEvent> wmStream =
-                        rawStream.assignTimestampsAndWatermarks(
-                                WatermarkRegistry
-                                .get(type, config)
-                                .create());
-                FlightQueryController controller = new FlightQueryController(config, type.name());
-                controller.buildQueries(wmStream);
-                System.out.println("Avvio query con watermark: "+ type.name());
+            String watermarkName = type.name();
+            DataStream<FlightEvent> wmStream =
+                    rawStream.assignTimestampsAndWatermarks(
+                            WatermarkRegistry
+                                    .get(type, config)
+                                    .create());
+
+            SingleOutputStreamOperator<FlightEvent> latencyMonitoredStream = wmStream
+                    .process(new LatencyMonitor<>("producer->flink-" + watermarkName,
+                            config.getMetricsLatencyIntervalMs()))
+                    .name("Latency Monitor " + watermarkName);
+
+            SingleOutputStreamOperator<FlightEvent> monitoredStream = latencyMonitoredStream
+                    .process(new ThroughputMonitor<>("watermark-" + watermarkName,
+                            config.getMetricsThroughputIntervalMs()))
+                    .name("Throughput Monitor " + watermarkName);
+
+            PerformanceSinks.writeLatencyCsv(
+                    latencyMonitoredStream.getSideOutput(PerformanceMetricTags.LATENCY),
+                    config.getPerformanceOutputPath() + "/" + watermarkName);
+            PerformanceSinks.writeThroughputCsv(
+                    monitoredStream.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                    config.getPerformanceOutputPath() + "/" + watermarkName);
+
+            FlightQueryController controller = new FlightQueryController(config, watermarkName);
+            controller.buildQueries(monitoredStream);
+            System.out.println("Avvio query con watermark: " + watermarkName);
 
         }
             
@@ -60,25 +79,8 @@ public class MainJob {
                 .map(new FlightEventDeserializer())
                 .name("Deserialize Flight Events");
 
-        SingleOutputStreamOperator<FlightEvent> latencyMonitoredStream = deserializedStream
-                .process(new LatencyMonitor<>("producer->flink",
-                        config.getMetricsLatencyIntervalMs()))
-                .name("Latency Monitor");
-
-        SingleOutputStreamOperator<FlightEvent> monitoredStream = latencyMonitoredStream
-                .process(new ThroughputMonitor<>("ingresso",
-                        config.getMetricsThroughputIntervalMs()))
-                .name("Throughput Monitor");
-
-        PerformanceSinks.writeLatencyCsv(
-                latencyMonitoredStream.getSideOutput(PerformanceMetricTags.LATENCY),
-                config.getPerformanceOutputPath());
-        PerformanceSinks.writeThroughputCsv(
-                monitoredStream.getSideOutput(PerformanceMetricTags.THROUGHPUT),
-                config.getPerformanceOutputPath());
-
         DataStream<OutOfOrderEvent> outOfOrderStream =
-        monitoredStream
+        deserializedStream
                 .keyBy(event -> "GLOBAL")
                 .process(new OutOfOrderDetector());
 
@@ -90,7 +92,7 @@ public class MainJob {
                 .name("Out Of Order Statistics");
 
 
-        return monitoredStream;                                              
+        return deserializedStream;
                 /*.assignTimestampsAndWatermarks(createEventTimeAssigner(config))
                 .name("Assign Event Time");*/
     }
