@@ -14,34 +14,30 @@ EXPORTER_CLASS="it.uniroma2.sabd.export.CSVExporter"
 STAGING_BASE_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGING_BASE_DIR"' EXIT
 
-
 QUERY1_HEADER="window_start,window_end,airline,num_flights,completed,cancelled,diverted,dep_delay_mean,cancellation_rate,late_departure_rate"
-
 QUERY2_HEADER="ts,rank,origin_airport_id,num_flights,severe_delays,dep_delay_mean,dep_delay_max,delayed_flights"
-
 WINDOW_HEADER="ts,airline,hour,count,min,p25,p50,p75,p90,max"
 
+# --- NUOVO HEADER PER LE TUPLE SCARTATE ---
+DISCARDED_HEADER="window_type,origin_airport_id,carrier,event_time,window_start,window_end"
+
 cleanup_output() {
-
     echo "Pulizia output CSV precedenti..."
-
     mkdir -p "${RESULT_DEST_DIR}"
 
-    find "${RESULT_DEST_DIR}" \
-        -type f \
-        -name "*.csv" \
-        -delete \
-        2>/dev/null || true
+    find "${RESULT_DEST_DIR}" -type f -name "*.csv" -delete 2>/dev/null || true
 
     mkdir -p "${RESULT_DEST_DIR}/query1"
     mkdir -p "${RESULT_DEST_DIR}/query2"
     mkdir -p "${RESULT_DEST_DIR}/query3"
+    
+    # Crea la cartella per i report dei dati scartati
+    mkdir -p "${RESULT_DEST_DIR}/discarded"
 
     echo "✔ Output pulito"
 }
 
 export_dataset() {
-
     local source_path="$1"
     local staging_dir="$2"
     local dest_file="$3"
@@ -49,7 +45,7 @@ export_dataset() {
     local label="$5"
 
     mkdir -p "$staging_dir"
-    mkdir -p "$RESULT_DEST_DIR"
+    mkdir -p "$(dirname "$dest_file")"
 
     echo "Esporto ${label} da ${SOURCE_CONTAINER}:${source_path}"
 
@@ -69,11 +65,8 @@ export_dataset() {
     echo "✔ Salvato: $dest_file"
 }
 
-
 export_query1() {
-
-    for WM in WM15 WM30 ADAPTIVE; do
-
+    for WM in WM15 WM100 ADAPTIVE; do
         export_dataset \
             "${OUTPUT_BASE}/${WM}/query1" \
             "${STAGING_BASE_DIR}/query1/${WM}" \
@@ -83,15 +76,12 @@ export_query1() {
     done
 }
 
-
 export_query2() {
-
-    local WM_LIST=("WM15" "WM30" "ADAPTIVE")
+    local WM_LIST=("WM15" "WM100" "ADAPTIVE")
     local SUBDIRS=("1h" "6h" "global")
 
     for WM in "${WM_LIST[@]}"; do
         for SUB in "${SUBDIRS[@]}"; do
-
             export_dataset \
                 "${OUTPUT_BASE}/${WM}/query2/${SUB}" \
                 "${STAGING_BASE_DIR}/query2/${WM}/${SUB}" \
@@ -103,13 +93,11 @@ export_query2() {
 }
 
 export_query3() {
-
-    local WM_LIST=("WM15" "WM30" "ADAPTIVE")
+    local WM_LIST=("WM15" "WM100" "ADAPTIVE")
     local SUBDIRS=("1day" "7day" "global")
 
     for WM in "${WM_LIST[@]}"; do
         for SUB in "${SUBDIRS[@]}"; do
-
             export_dataset \
                 "${OUTPUT_BASE}/${WM}/query3/${SUB}" \
                 "${STAGING_BASE_DIR}/query3/${WM}/${SUB}" \
@@ -119,9 +107,34 @@ export_query3() {
         done
     done
 }
+
+# --- NUOVA FUNZIONE PER ESPORTARE I DATI FUORI ORDINE SCARTATI ---
+export_query2_discarded() {
+    # Poiché raccogliamo gli scarti solo per WM15, esportiamo solo quel blocco
+    local WM="WM15"
+    
+    # Esporta scarti 1h
+    export_dataset \
+        "${OUTPUT_BASE}/${WM}/query2/discarded_1h" \
+        "${STAGING_BASE_DIR}/discarded/${WM}/1h" \
+        "${RESULT_DEST_DIR}/discarded/query2_discarded_1h_${WM}.csv" \
+        "$DISCARDED_HEADER" \
+        "Query2 Discarded 1h [$WM]"
+
+    # Esporta scarti 6h
+    export_dataset \
+        "${OUTPUT_BASE}/${WM}/query2/discarded_6h" \
+        "${STAGING_BASE_DIR}/discarded/${WM}/6h" \
+        "${RESULT_DEST_DIR}/discarded/query2_discarded_6h_${WM}.csv" \
+        "$DISCARDED_HEADER" \
+        "Query2 Discarded 6h [$WM]"
+}
+
+# Esecuzione funzioni
 cleanup_output
 export_query1
 export_query2
 export_query3
+export_query2_discarded # <--- CHIAMATA ALLA NUOVA FUNZIONE
 
 echo "✔ EXPORT COMPLETATO"

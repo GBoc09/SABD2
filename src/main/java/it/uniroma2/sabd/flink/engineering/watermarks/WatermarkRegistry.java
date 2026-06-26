@@ -6,7 +6,7 @@ import it.uniroma2.sabd.flink.engineering.watermarks.BoundedOutOfOrderStrategy;
 import it.uniroma2.sabd.flink.engineering.watermarks.AdaptiveStrategy;
 
 public class WatermarkRegistry {
-
+//5 * 60 * 1000
     public static WatermarkFactory get(
             WatermarkType type,
             AppConfig config) {
@@ -14,15 +14,16 @@ public class WatermarkRegistry {
         switch(type) {
 
             case WM15:
-                return new BoundedOutOfOrderStrategy(
-                        15 * 60 * 1000);
+                System.out.println("BOUNDED STRATEGY 15MIN ATTIVA");
+                return new BoundedOutOfOrderStrategy(1);
 
-            case WM30:
+            case WM100:
+                System.out.println("BOUNDED STRATEGY 100MIN ATTIVA");
                 return new BoundedOutOfOrderStrategy(
-                        30 * 60 * 1000);
+                        100 * 60 * 1000);
 
             case ADAPTIVE:
-                System.out.println(">>> ADAPTIVE STRATEGY ACTIVE");
+                System.out.println("STRATEGIA ADATTATIVA ATTIVA");
                 return new AdaptiveStrategy();
 
             default:

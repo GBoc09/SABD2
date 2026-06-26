@@ -27,11 +27,11 @@ public class ReplayEngine {
 
         System.out.println("Sorting events...");
 
-        events.sort(
+       /* events.sort(
                 Comparator.comparing(
                         FlightEvent::getEventTime
                 )
-        );
+        );*/
 
         System.out.println(
                 "Replay started. Events: "
