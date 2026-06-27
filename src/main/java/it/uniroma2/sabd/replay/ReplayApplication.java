@@ -6,6 +6,7 @@ import it.uniroma2.sabd.kafka.KafkaTopicManager;
 import it.uniroma2.sabd.kafka.KafkaFlightProducer;
 import it.uniroma2.sabd.config.ReplayConfig;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ReplayApplication {
@@ -18,6 +19,11 @@ public class ReplayApplication {
         System.out.println("Kafka broker: " + config.getKafkaBootstrapServers());
         System.out.println("Kafka topic: " + config.getKafkaTopic() + " (Partitions: " + config.getKafkaPartitions() + ")");
         System.out.println("Acceleration factor: " + config.getAccelerationFactor() + "x");
+        System.out.println("Replay producers: " + config.getProducerCount());
+        System.out.println("Replay Kafka partition: " + config.getReplayKafkaPartition());
+        System.out.println("Replay max initial network delay: " + config.getMaxNetworkDelayMillis() + " ms");
+        System.out.println("Replay speed skew: +/-" + config.getSpeedSkewPercent() + "%");
+        System.out.println("Replay random seed: " + config.getRandomSeed());
         System.out.println("---------------------------");
 
         KafkaTopicManager topicManager = new KafkaTopicManager(config.getKafkaBootstrapServers());
@@ -26,11 +32,6 @@ public class ReplayApplication {
                 config.getKafkaTopic(),
                 config.getKafkaPartitions(),
                 (short) 1
-        );
-
-        KafkaFlightProducer producer = new KafkaFlightProducer(
-                config.getKafkaBootstrapServers(),
-                config.getKafkaTopic()
         );
 
         //Caricamento Dati
@@ -42,14 +43,50 @@ public class ReplayApplication {
 
         System.out.println("Loaded events: " + events.size());
 
-        //Avvio Replay
-        ReplayEngine replayEngine = new ReplayEngine(
-                config.getAccelerationFactor(),
-                producer
-        );
+        List<KafkaFlightProducer> producers =
+                createProducers(config);
 
-        replayEngine.replay(events);
+        try {
+            //Avvio Replay
+            ReplayEngine replayEngine = new ReplayEngine(
+                    config.getAccelerationFactor(),
+                    producers,
+                    config.getMaxNetworkDelayMillis(),
+                    config.getSpeedSkewPercent(),
+                    config.getRandomSeed()
+            );
 
-        producer.close();
+            replayEngine.replay(events);
+        } finally {
+            closeProducers(producers);
+        }
+    }
+
+    private static List<KafkaFlightProducer> createProducers(ReplayConfig config) {
+        List<KafkaFlightProducer> producers =
+                new ArrayList<>();
+
+        for (int i = 0; i < config.getProducerCount(); i++) {
+            producers.add(
+                    new KafkaFlightProducer(
+                            config.getKafkaBootstrapServers(),
+                            config.getKafkaTopic(),
+                            config.getReplayKafkaPartition(),
+                            "flight-replay-producer-" + i
+                    )
+            );
+        }
+
+        return producers;
+    }
+
+    private static void closeProducers(List<KafkaFlightProducer> producers) {
+        for (KafkaFlightProducer producer : producers) {
+            try {
+                producer.close();
+            } catch (Exception e) {
+                System.err.println("Error closing Kafka producer: " + e.getMessage());
+            }
+        }
     }
 }

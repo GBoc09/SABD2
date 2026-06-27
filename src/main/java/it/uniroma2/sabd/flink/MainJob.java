@@ -5,9 +5,11 @@ import it.uniroma2.sabd.flink.controller.FlightQueryController;
 import it.uniroma2.sabd.flink.controller.LatencyMonitor;
 import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
 import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
+import it.uniroma2.sabd.flink.controller.WatermarkLateEventDetector;
 import it.uniroma2.sabd.flink.io.kafka.FlightEventDeserializer;
 import it.uniroma2.sabd.flink.io.kafka.FlightKafkaSourceFactory;
 import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
+import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkType;
 import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkRegistry;
@@ -43,7 +45,16 @@ public class MainJob {
                                     .get(type, config)
                                     .create());
 
-            SingleOutputStreamOperator<FlightEvent> latencyMonitoredStream = wmStream
+            SingleOutputStreamOperator<FlightEvent> watermarkCheckedStream = wmStream
+                    .process(new WatermarkLateEventDetector())
+                    .name("Watermark Late Event Detector " + watermarkName);
+
+            watermarkCheckedStream
+                    .getSideOutput(WatermarkLateEventDetector.LATE_AFTER_WATERMARK_TAG)
+                    .sinkTo(QuerySinks.watermarkLateEventsCsv(watermarkName))
+                    .name("Watermark Late Events CSV Sink " + watermarkName);
+
+            SingleOutputStreamOperator<FlightEvent> latencyMonitoredStream = watermarkCheckedStream
                     .process(new LatencyMonitor<>("producer->flink-" + watermarkName,
                             config.getMetricsLatencyIntervalMs()))
                     .name("Latency Monitor " + watermarkName);

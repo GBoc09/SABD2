@@ -15,7 +15,8 @@ public class WatermarkRegistry {
 
             case WM15:
                 System.out.println("BOUNDED STRATEGY 15MIN ATTIVA");
-                return new BoundedOutOfOrderStrategy(1);
+                return new BoundedOutOfOrderStrategy(
+                        15 * 60 * 1000);
 
             case WM100:
                 System.out.println("BOUNDED STRATEGY 100MIN ATTIVA");

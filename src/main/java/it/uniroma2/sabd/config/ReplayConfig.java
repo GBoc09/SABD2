@@ -15,6 +15,11 @@ public class ReplayConfig {
     private final String kafkaTopic;
     private final int kafkaPartitions;
     private final long accelerationFactor;
+    private final int producerCount;
+    private final int replayKafkaPartition;
+    private final long maxNetworkDelayMillis;
+    private final int speedSkewPercent;
+    private final long randomSeed;
 
     public ReplayConfig() {
         Properties props = new Properties();
@@ -34,6 +39,34 @@ public class ReplayConfig {
         this.kafkaPartitions = Integer.parseInt(System.getenv().getOrDefault("KAFKA_PARTITIONS", props.getProperty("kafka.partitions", "4")));
 
         this.accelerationFactor = Long.parseLong(System.getenv().getOrDefault("REPLAY_ACCELERATION_FACTOR", props.getProperty("replay.acceleration.factor", "20000")));
+        this.producerCount = Integer.parseInt(System.getenv().getOrDefault("REPLAY_PRODUCER_COUNT", props.getProperty("replay.producer.count", "4")));
+        this.replayKafkaPartition = Integer.parseInt(System.getenv().getOrDefault("REPLAY_KAFKA_PARTITION", props.getProperty("replay.kafka.partition", "0")));
+        this.maxNetworkDelayMillis = Long.parseLong(System.getenv().getOrDefault("REPLAY_MAX_NETWORK_DELAY_MS", props.getProperty("replay.max.network.delay.ms", "250")));
+        this.speedSkewPercent = Integer.parseInt(System.getenv().getOrDefault("REPLAY_SPEED_SKEW_PERCENT", props.getProperty("replay.speed.skew.percent", "15")));
+        this.randomSeed = Long.parseLong(System.getenv().getOrDefault("REPLAY_RANDOM_SEED", props.getProperty("replay.random.seed", "42")));
+
+        validate();
+    }
+
+    private void validate() {
+        if (kafkaPartitions < 1) {
+            throw new IllegalArgumentException("kafka.partitions deve essere almeno 1");
+        }
+        if (accelerationFactor < 1) {
+            throw new IllegalArgumentException("replay.acceleration.factor deve essere almeno 1");
+        }
+        if (producerCount < 1) {
+            throw new IllegalArgumentException("replay.producer.count deve essere almeno 1");
+        }
+        if (replayKafkaPartition < 0 || replayKafkaPartition >= kafkaPartitions) {
+            throw new IllegalArgumentException("replay.kafka.partition deve essere compresa tra 0 e kafka.partitions - 1");
+        }
+        if (maxNetworkDelayMillis < 0) {
+            throw new IllegalArgumentException("replay.max.network.delay.ms non puo' essere negativo");
+        }
+        if (speedSkewPercent < 0) {
+            throw new IllegalArgumentException("replay.speed.skew.percent non puo' essere negativo");
+        }
     }
 
     // --- Getters ---
@@ -59,5 +92,25 @@ public class ReplayConfig {
 
     public long getAccelerationFactor() {
         return accelerationFactor;
+    }
+
+    public int getProducerCount() {
+        return producerCount;
+    }
+
+    public int getReplayKafkaPartition() {
+        return replayKafkaPartition;
+    }
+
+    public long getMaxNetworkDelayMillis() {
+        return maxNetworkDelayMillis;
+    }
+
+    public int getSpeedSkewPercent() {
+        return speedSkewPercent;
+    }
+
+    public long getRandomSeed() {
+        return randomSeed;
     }
 }
