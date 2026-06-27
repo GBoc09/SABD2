@@ -74,7 +74,7 @@ export_performance_csv() {
 if $COMPOSE_CMD cp "${SOURCE_CONTAINER}:${PERFORMANCE_SOURCE_PATH}/." "$PERFORMANCE_STAGING_DIR" 2>/dev/null; then
     sudo chown -R "$(id -u):$(id -g)" "$PERFORMANCE_STAGING_DIR"
 
-    for WM in WM15 WM30 ADAPTIVE; do
+    for WM in WM15 WM100 ADAPTIVE; do
         export_performance_csv "$WM" "latency" "$LATENCY_HEADER"
         export_performance_csv "$WM" "throughput" "$THROUGHPUT_HEADER"
     done

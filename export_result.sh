@@ -18,8 +18,6 @@ QUERY1_HEADER="window_start,window_end,airline,num_flights,completed,cancelled,d
 QUERY2_HEADER="ts,rank,origin_airport_id,num_flights,severe_delays,dep_delay_mean,dep_delay_max,delayed_flights"
 WINDOW_HEADER="ts,airline,hour,count,min,p25,p50,p75,p90,max"
 
-# --- NUOVO HEADER PER LE TUPLE SCARTATE ---
-DISCARDED_HEADER="window_type,origin_airport_id,carrier,event_time,window_start,window_end"
 
 cleanup_output() {
     echo "Pulizia output CSV precedenti..."
@@ -31,9 +29,6 @@ cleanup_output() {
     mkdir -p "${RESULT_DEST_DIR}/query2"
     mkdir -p "${RESULT_DEST_DIR}/query3"
     
-    # Crea la cartella per i report dei dati scartati
-    mkdir -p "${RESULT_DEST_DIR}/discarded"
-
     echo "✔ Output pulito"
 }
 
@@ -108,33 +103,11 @@ export_query3() {
     done
 }
 
-# --- NUOVA FUNZIONE PER ESPORTARE I DATI FUORI ORDINE SCARTATI ---
-export_query2_discarded() {
-    # Poiché raccogliamo gli scarti solo per WM15, esportiamo solo quel blocco
-    local WM="WM15"
-    
-    # Esporta scarti 1h
-    export_dataset \
-        "${OUTPUT_BASE}/${WM}/query2/discarded_1h" \
-        "${STAGING_BASE_DIR}/discarded/${WM}/1h" \
-        "${RESULT_DEST_DIR}/discarded/query2_discarded_1h_${WM}.csv" \
-        "$DISCARDED_HEADER" \
-        "Query2 Discarded 1h [$WM]"
-
-    # Esporta scarti 6h
-    export_dataset \
-        "${OUTPUT_BASE}/${WM}/query2/discarded_6h" \
-        "${STAGING_BASE_DIR}/discarded/${WM}/6h" \
-        "${RESULT_DEST_DIR}/discarded/query2_discarded_6h_${WM}.csv" \
-        "$DISCARDED_HEADER" \
-        "Query2 Discarded 6h [$WM]"
-}
 
 # Esecuzione funzioni
 cleanup_output
 export_query1
 export_query2
 export_query3
-export_query2_discarded # <--- CHIAMATA ALLA NUOVA FUNZIONE
 
 echo "✔ EXPORT COMPLETATO"
