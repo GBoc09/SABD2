@@ -25,6 +25,8 @@ final class Query2Accumulator
         state.numFlights++;
         state.depDelaySum += event.getDepDelay();
         state.depDelayMax  = Math.max(state.depDelayMax, event.getDepDelay());
+        state.processingStartTimeMs =
+                Math.max(state.processingStartTimeMs, event.getProcessingStartTimeMs());
 
         if (event.getDepDelay() > SEVERE_DELAY_THRESHOLD) {
             state.severeDelays++;
@@ -56,7 +58,8 @@ final class Query2Accumulator
                 state.severeDelays,
                 state.depDelaySum,
                 state.depDelayMax,
-                new ArrayList<>(state.delayedFlights));
+                new ArrayList<>(state.delayedFlights),
+                state.processingStartTimeMs);
     }
 
     @Override
@@ -65,6 +68,8 @@ final class Query2Accumulator
         left.severeDelays  += right.severeDelays;
         left.depDelaySum   += right.depDelaySum;
         left.depDelayMax    = Math.max(left.depDelayMax, right.depDelayMax);
+        left.processingStartTimeMs =
+                Math.max(left.processingStartTimeMs, right.processingStartTimeMs);
         left.delayedFlights.addAll(right.delayedFlights);
 
         // mantiene solo le prime 20(+1, cioè quel valore con cui fare il confronto).
@@ -83,6 +88,7 @@ final class Query2Accumulator
         long   severeDelays    = 0;
         double depDelaySum     = 0.0;
         double depDelayMax     = Double.NEGATIVE_INFINITY;
+        long   processingStartTimeMs = 0L;
         List<DelayedFlight> delayedFlights = new ArrayList<>();
     }
 }

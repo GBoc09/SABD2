@@ -30,6 +30,8 @@ final class Query3Accumulator implements AggregateFunction<FlightEvent, Query3Ac
         state.min = Math.min(state.min, depDelay);
         state.max = Math.max(state.max, depDelay);
         state.digest.add(depDelay);
+        state.processingStartTimeMs =
+                Math.max(state.processingStartTimeMs, event.getProcessingStartTimeMs());
 
         return state;
     }
@@ -49,7 +51,8 @@ final class Query3Accumulator implements AggregateFunction<FlightEvent, Query3Ac
                 state.count,
                 min,
                 max,
-                state.digest);
+                state.digest,
+                state.processingStartTimeMs);
     }
 
     @Override
@@ -58,6 +61,8 @@ final class Query3Accumulator implements AggregateFunction<FlightEvent, Query3Ac
         left.min = Math.min(left.min, right.min);
         left.max = Math.max(left.max, right.max);
         left.digest.add(right.digest);
+        left.processingStartTimeMs =
+                Math.max(left.processingStartTimeMs, right.processingStartTimeMs);
         return left;
     }
 
@@ -66,5 +71,6 @@ final class Query3Accumulator implements AggregateFunction<FlightEvent, Query3Ac
         private double min;
         private double max;
         private TDigest digest;
+        private long processingStartTimeMs;
     }
 }

@@ -2,7 +2,6 @@ package it.uniroma2.sabd.flink;
 
 import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.controller.FlightQueryController;
-import it.uniroma2.sabd.flink.controller.LatencyMonitor;
 import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
 import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
 import it.uniroma2.sabd.flink.controller.WatermarkLateEventDetector;
@@ -54,19 +53,11 @@ public class MainJob {
                 .sinkTo(QuerySinks.watermarkLateEventsCsv(watermarkName))
                 .name("Watermark Late Events CSV Sink " + watermarkName);
 
-        SingleOutputStreamOperator<FlightEvent> latencyMonitoredStream = watermarkCheckedStream
-                .process(new LatencyMonitor<>("producer->flink-" + watermarkName,
-                        config.getMetricsLatencyIntervalMs()))
-                .name("Latency Monitor " + watermarkName);
-
-        SingleOutputStreamOperator<FlightEvent> monitoredStream = latencyMonitoredStream
+        SingleOutputStreamOperator<FlightEvent> monitoredStream = watermarkCheckedStream
                 .process(new ThroughputMonitor<>("watermark-" + watermarkName,
                         config.getMetricsThroughputIntervalMs()))
                 .name("Throughput Monitor " + watermarkName);
 
-        PerformanceSinks.writeLatencyCsv(
-                latencyMonitoredStream.getSideOutput(PerformanceMetricTags.LATENCY),
-                config.getPerformanceOutputPath() + "/" + watermarkName);
         PerformanceSinks.writeThroughputCsv(
                 monitoredStream.getSideOutput(PerformanceMetricTags.THROUGHPUT),
                 config.getPerformanceOutputPath() + "/" + watermarkName);

@@ -3,6 +3,9 @@ package it.uniroma2.sabd.flink.query.query3;
 import static it.uniroma2.sabd.flink.query.TargetAirlines.TARGET_AIRLINES;
 
 import it.uniroma2.sabd.config.AppConfig;
+import it.uniroma2.sabd.flink.controller.LatencyMonitor;
+import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
+import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.flink.model.Query3GlobalStats;
 import it.uniroma2.sabd.flink.model.Query3Key;
@@ -11,6 +14,7 @@ import it.uniroma2.sabd.model.FlightEvent;
 import java.time.Duration;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 
 public final class Query3 {
@@ -43,7 +47,7 @@ public final class Query3 {
             .filter(event -> TARGET_AIRLINES.contains(event.getCarrier()))
             .filter(event -> event.getCancelled()==0.0 && event.getDiverted()==0.0);
 
-        DataStream<Query3Stats> daily = validFlights
+        SingleOutputStreamOperator<Query3Stats> daily = validFlights
                 .keyBy(Query3::airlineDepartureHourKey)
                 .window(TumblingEventTimeWindows.of(Duration.ofDays(1)))
                 .aggregate(
@@ -51,7 +55,7 @@ public final class Query3 {
                         new FinalizeQuery3Stats()
                 );  
 
-        DataStream<Query3Stats> weekly = validFlights
+        SingleOutputStreamOperator<Query3Stats> weekly = validFlights
                 .keyBy(Query3::airlineDepartureHourKey)
                 .window(TumblingEventTimeWindows.of(Duration.ofDays(7)))
                 .aggregate(
@@ -59,21 +63,46 @@ public final class Query3 {
                         new FinalizeQuery3Stats()
                 ); 
 
-        DataStream<Query3GlobalStats> global = validFlights
+        SingleOutputStreamOperator<Query3GlobalStats> global = validFlights
                 .keyBy(Query3::airlineDepartureHourKey)
                 .process(new GlobalTDigestProcessFunction());
 
-        daily
+        SingleOutputStreamOperator<Query3Stats> monitoredDaily = daily
+                .process(new LatencyMonitor<>("q3-1day-result-" + watermarkName,
+                        config.getMetricsLatencyIntervalMs()))
+                .name("Query3 1-Day Result Latency Monitor");
+
+        SingleOutputStreamOperator<Query3Stats> monitoredWeekly = weekly
+                .process(new LatencyMonitor<>("q3-7day-result-" + watermarkName,
+                        config.getMetricsLatencyIntervalMs()))
+                .name("Query3 7-Day Result Latency Monitor");
+
+        SingleOutputStreamOperator<Query3GlobalStats> monitoredGlobal = global
+                .process(new LatencyMonitor<>("q3-global-result-" + watermarkName,
+                        config.getMetricsLatencyIntervalMs()))
+                .name("Query3 Global Result Latency Monitor");
+
+        PerformanceSinks.writeLatencyCsvAtPath(
+                monitoredDaily.getSideOutput(PerformanceMetricTags.LATENCY),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q3_1day");
+        PerformanceSinks.writeLatencyCsvAtPath(
+                monitoredWeekly.getSideOutput(PerformanceMetricTags.LATENCY),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q3_7day");
+        PerformanceSinks.writeLatencyCsvAtPath(
+                monitoredGlobal.getSideOutput(PerformanceMetricTags.LATENCY),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q3_global");
+
+        monitoredDaily
                 .map(Query3Stats::toCSV)
                 .sinkTo(QuerySinks.query3OneDayCsv(watermarkName))
                 .name("Query3 1-Day CSV Sink");
 
-        weekly
+        monitoredWeekly
                 .map(Query3Stats::toCSV)
                 .sinkTo(QuerySinks.query3SevenDaysCsv(watermarkName))
                 .name("Query3 7-Day CSV Sink");
 
-        global
+        monitoredGlobal
                 .map(Query3GlobalStats::toCSV)
                 .sinkTo(QuerySinks.queryGlobalCsv(watermarkName))
                 .name("Query3 Global CSV Sink");

@@ -59,6 +59,8 @@ final class GlobalQuery2ProcessFunction
         state.numFlights++;
         state.depDelaySum += event.getDepDelay();
         state.depDelayMax = Math.max(state.depDelayMax, event.getDepDelay());
+        state.processingStartTimeMs =
+                Math.max(state.processingStartTimeMs, event.getProcessingStartTimeMs());
 
         if (event.getDepDelay() > SEVERE_DELAY_THRESHOLD) {
             state.severeDelays++;
@@ -109,7 +111,8 @@ final class GlobalQuery2ProcessFunction
                     state.severeDelays,
                     state.numFlights > 0 ? state.depDelaySum / state.numFlights : 0.0,
                     state.depDelayMax,
-                    top20));
+                    top20,
+                    state.processingStartTimeMs));
         }
 
         long next = nextMonthlyTimer(timestamp);
@@ -135,6 +138,8 @@ final class GlobalQuery2ProcessFunction
         target.severeDelays += source.severeDelays;
         target.depDelaySum += source.depDelaySum;
         target.depDelayMax = Math.max(target.depDelayMax, source.depDelayMax);
+        target.processingStartTimeMs =
+                Math.max(target.processingStartTimeMs, source.processingStartTimeMs);
         target.delayedFlights.addAll(source.delayedFlights);
 
         if (target.delayedFlights.size() > MAX_DELAYED_FLIGHTS) {

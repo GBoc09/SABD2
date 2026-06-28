@@ -1,6 +1,9 @@
 package it.uniroma2.sabd.flink.query.query2;
 
 import it.uniroma2.sabd.config.AppConfig;
+import it.uniroma2.sabd.flink.controller.LatencyMonitor;
+import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
+import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.flink.model.Query2Stats;
@@ -64,7 +67,7 @@ public final class Query2 {
                 .sideOutputLateData(q2Late1hTag) // <--- INTERCETTA SCARTI 1H
                 .aggregate(new Query2Accumulator(), new FinalizeQuery2Stats());
 
-        DataStream<Query2Stats> ranking1h = aggregated1h
+        SingleOutputStreamOperator<Query2Stats> ranking1h = aggregated1h
                 .name("Q2 aggregate 1h")
                 .keyBy(Query2Stats::getWindowStartEpoch)
                 .process(new RankingProcessFunction())
@@ -76,14 +79,14 @@ public final class Query2 {
                 .sideOutputLateData(q2Late6hTag) // <--- INTERCETTA SCARTI 6H
                 .aggregate(new Query2Accumulator(), new FinalizeQuery2Stats());
 
-        DataStream<Query2Stats> ranking6h = aggregated6h
+        SingleOutputStreamOperator<Query2Stats> ranking6h = aggregated6h
                 .name("Q2 aggregate 6h")
                 .keyBy(Query2Stats::getWindowStartEpoch)
                 .process(new RankingProcessFunction())
                 .name("Q2 ranking 6h");
 
         // --- globale ---
-        DataStream<Query2Stats> rankingGlobal = validFlights
+        SingleOutputStreamOperator<Query2Stats> rankingGlobal = validFlights
                 .keyBy(FlightEvent::getOriginAirportId)
                 .process(new GlobalQuery2ProcessFunction())
                 .name("Q2 global accumulate")
@@ -91,18 +94,43 @@ public final class Query2 {
                 .process(new RankingProcessFunction())
                 .name("Q2 ranking global");
 
+        SingleOutputStreamOperator<Query2Stats> monitoredRanking1h = ranking1h
+                .process(new LatencyMonitor<>("q2-1h-result-" + watermarkName,
+                        config.getMetricsLatencyIntervalMs()))
+                .name("Q2 1h Result Latency Monitor");
+
+        SingleOutputStreamOperator<Query2Stats> monitoredRanking6h = ranking6h
+                .process(new LatencyMonitor<>("q2-6h-result-" + watermarkName,
+                        config.getMetricsLatencyIntervalMs()))
+                .name("Q2 6h Result Latency Monitor");
+
+        SingleOutputStreamOperator<Query2Stats> monitoredRankingGlobal = rankingGlobal
+                .process(new LatencyMonitor<>("q2-global-result-" + watermarkName,
+                        config.getMetricsLatencyIntervalMs()))
+                .name("Q2 Global Result Latency Monitor");
+
+        PerformanceSinks.writeLatencyCsvAtPath(
+                monitoredRanking1h.getSideOutput(PerformanceMetricTags.LATENCY),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q2_1h");
+        PerformanceSinks.writeLatencyCsvAtPath(
+                monitoredRanking6h.getSideOutput(PerformanceMetricTags.LATENCY),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q2_6h");
+        PerformanceSinks.writeLatencyCsvAtPath(
+                monitoredRankingGlobal.getSideOutput(PerformanceMetricTags.LATENCY),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q2_global");
+
         // --- sink CSV ---
-        ranking1h
+        monitoredRanking1h
                 .map(Query2Stats::toCSV)
                 .sinkTo(QuerySinks.query2OneHourCsv(watermarkName))
                 .name("Q2 1h CSV Sink");
 
-        ranking6h
+        monitoredRanking6h
                 .map(Query2Stats::toCSV)
                 .sinkTo(QuerySinks.query2SixHoursCsv(watermarkName))
                 .name("Q2 6h CSV Sink");
 
-        rankingGlobal
+        monitoredRankingGlobal
                 .map(Query2Stats::toCSV)
                 .sinkTo(QuerySinks.query2GlobalCsv(watermarkName))
                 .name("Q2 Global CSV Sink");

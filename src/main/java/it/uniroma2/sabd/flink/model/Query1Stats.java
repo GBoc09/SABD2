@@ -1,8 +1,9 @@
 package it.uniroma2.sabd.flink.model;
 
+import it.uniroma2.sabd.model.HasProcessingStartTime;
 import java.time.Instant;
 
-public class Query1Stats{
+public class Query1Stats implements HasProcessingStartTime {
     Instant windowStart;
     Instant windowEnd;
     String airline;
@@ -13,8 +14,9 @@ public class Query1Stats{
     double avg_dep_delay;
     double cancellation_rate;
     double late_departure_rate;
+    long processingStartTimeMs;
 
-    public Query1Stats(Instant windowStart, Instant windowEnd, String airline, long num_flights, long completed_flights, long cancelled_flights, long diverted_flights, double avg_dep_delay, double cancellation_rate, double late_departure_rate) {
+    public Query1Stats(Instant windowStart, Instant windowEnd, String airline, long num_flights, long completed_flights, long cancelled_flights, long diverted_flights, double avg_dep_delay, double cancellation_rate, double late_departure_rate, long processingStartTimeMs) {
         this.windowStart = windowStart;
         this.windowEnd = windowEnd;
         this.airline = airline;
@@ -25,6 +27,17 @@ public class Query1Stats{
         this.avg_dep_delay = avg_dep_delay;
         this.cancellation_rate = cancellation_rate;
         this.late_departure_rate = late_departure_rate;
+        this.processingStartTimeMs = processingStartTimeMs;
+    }
+
+    @Override
+    public long getProcessingStartTimeMs() {
+        return processingStartTimeMs;
+    }
+
+    @Override
+    public void setProcessingStartTimeMs(long processingStartTimeMs) {
+        this.processingStartTimeMs = processingStartTimeMs;
     }
 
     // final output format for Query1 results

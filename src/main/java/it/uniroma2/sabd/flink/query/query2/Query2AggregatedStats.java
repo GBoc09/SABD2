@@ -16,6 +16,7 @@ final class Query2AggregatedStats implements Serializable {
     final double depDelaySum;
     final double depDelayMax;
     final List<DelayedFlight> delayedFlights;
+    final long processingStartTimeMs;
 
     Query2AggregatedStats(
             int originAirportId,
@@ -23,13 +24,15 @@ final class Query2AggregatedStats implements Serializable {
             long severeDelays,
             double depDelaySum,
             double depDelayMax,
-            List<DelayedFlight> delayedFlights) {
+            List<DelayedFlight> delayedFlights,
+            long processingStartTimeMs) {
         this.originAirportId  = originAirportId;
         this.numFlights       = numFlights;
         this.severeDelays     = severeDelays;
         this.depDelaySum      = depDelaySum;
         this.depDelayMax      = depDelayMax;
         this.delayedFlights   = delayedFlights;
+        this.processingStartTimeMs = processingStartTimeMs;
     }
 
     double depDelayMean() {

@@ -1,7 +1,7 @@
 package it.uniroma2.sabd.flink.controller;
 
 import it.uniroma2.sabd.flink.model.LatencyMetric;
-import it.uniroma2.sabd.model.HasProducedAt;
+import it.uniroma2.sabd.model.HasProcessingStartTime;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.util.Collector;
@@ -12,10 +12,10 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Operatore passthrough che misura la latenza di processamento.
- * Confronta il processing time (orologio reale Flink) con un campo
- * producedAt (ms epoch) che il producer Kafka ha scritto nell'evento.
+ * Confronta il processing time corrente con il timestamp di ingresso in
+ * Flink della tupla piu recente che ha contribuito al risultato.
  */
-public class LatencyMonitor<T extends HasProducedAt> extends ProcessFunction<T, T> {
+public class LatencyMonitor<T extends HasProcessingStartTime> extends ProcessFunction<T, T> {
 
     private final String label;
     private final long reportEveryMs;
@@ -65,13 +65,13 @@ public class LatencyMonitor<T extends HasProducedAt> extends ProcessFunction<T, 
     @Override
     public void processElement(T event, Context ctx, Collector<T> out) {
         long processingTime = ctx.timerService().currentProcessingTime();
-        long producedAt     = event.getProducedAt();
+        long processingStartTime = event.getProcessingStartTimeMs();
 
-        if (producedAt <= 0) {
+        if (processingStartTime <= 0) {
             skippedEvents++;
             if (skippedEvents == 1) {
                 LOG.warn(
-                        "LATENCY_MONITOR label={} subtask={} skipped event without producedAt",
+                        "LATENCY_MONITOR label={} subtask={} skipped event without processingStartTimeMs",
                         label,
                         subtaskIndex);
             }
@@ -79,7 +79,7 @@ public class LatencyMonitor<T extends HasProducedAt> extends ProcessFunction<T, 
             return;
         }
 
-        long latencyMs      = processingTime - producedAt;
+        long latencyMs = processingTime - processingStartTime;
 
         totalEvents++;
         windowEvents++;

@@ -10,7 +10,6 @@ EXPORTER_CLASS="it.uniroma2.sabd.export.CSVExporter"
 HEADER="event_time,event_timestamp_ms,current_watermark,current_watermark_ms,lateness_ms,carrier,origin_airport_id,dest_airport_id,crs_dep_time,dep_delay,cancelled,diverted,produced_at"
 
 STAGING_BASE_DIR="$(mktemp -d)"
-trap 'rm -rf "$STAGING_BASE_DIR"' EXIT
 
 export_late_events() {
     local watermark="$1"

@@ -26,6 +26,7 @@ final class FinalizeQuery1Stats implements WindowFunction<Query1AggregatedStats,
                 stats.divertedFlights,
                 stats.avgDepDelay,
                 stats.cancellationRate,
-                stats.lateDepartureRate));
+                stats.lateDepartureRate,
+                stats.processingStartTimeMs));
     }
 }

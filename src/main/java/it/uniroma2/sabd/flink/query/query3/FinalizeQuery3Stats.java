@@ -29,7 +29,8 @@ final class FinalizeQuery3Stats implements WindowFunction<Query3AggregatedStats,
                 quantile(stats.digest, 0.50),
                 quantile(stats.digest, 0.75),
                 quantile(stats.digest, 0.90),
-                stats.max));
+                stats.max,
+                stats.processingStartTimeMs));
     }
 
     private double quantile(TDigest digest, double q) {

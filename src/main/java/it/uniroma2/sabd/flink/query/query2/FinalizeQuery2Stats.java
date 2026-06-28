@@ -35,6 +35,7 @@ final class FinalizeQuery2Stats
                 stats.severeDelays,
                 stats.depDelayMean(),
                 stats.depDelayMax,
-                stats.delayedFlights));
+                stats.delayedFlights,
+                stats.processingStartTimeMs));
     }
 }

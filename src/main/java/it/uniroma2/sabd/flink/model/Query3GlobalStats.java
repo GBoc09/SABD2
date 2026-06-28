@@ -19,7 +19,8 @@ public class Query3GlobalStats extends Query3Stats {
             double p50_dep_delay,
             double p75_dep_delay,
             double p90_dep_delay,
-            double max_dep_delay) {
+            double max_dep_delay,
+            long processingStartTimeMs) {
         super(
                 globalStart,
                 snapshotTime,
@@ -31,7 +32,8 @@ public class Query3GlobalStats extends Query3Stats {
                 p50_dep_delay,
                 p75_dep_delay,
                 p90_dep_delay,
-                max_dep_delay);
+                max_dep_delay,
+                processingStartTimeMs);
     }
 
     @Override
@@ -47,6 +49,7 @@ public class Query3GlobalStats extends Query3Stats {
                 p50_dep_delay,
                 p75_dep_delay,
                 p90_dep_delay,
-                max_dep_delay).toCSV();
+                max_dep_delay,
+                processingStartTimeMs).toCSV();
     }
 }

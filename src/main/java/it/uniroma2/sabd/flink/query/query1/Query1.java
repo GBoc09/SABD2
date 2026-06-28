@@ -3,11 +3,15 @@ package it.uniroma2.sabd.flink.query.query1;
 import static it.uniroma2.sabd.flink.query.TargetAirlines.TARGET_AIRLINES;
 
 import it.uniroma2.sabd.config.AppConfig;
+import it.uniroma2.sabd.flink.controller.LatencyMonitor;
+import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
+import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.flink.model.Query1Stats;
 import java.time.Duration;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 
 public final class Query1 {
@@ -37,7 +41,16 @@ public final class Query1 {
                         new FinalizeQuery1Stats()
                 );
 
-        stats
+        SingleOutputStreamOperator<Query1Stats> monitoredStats = stats
+                .process(new LatencyMonitor<>("q1-1h-result-" + watermarkName,
+                        config.getMetricsLatencyIntervalMs()))
+                .name("Q1 1h Result Latency Monitor");
+
+        PerformanceSinks.writeLatencyCsvAtPath(
+                monitoredStats.getSideOutput(PerformanceMetricTags.LATENCY),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q1_1h");
+
+        monitoredStats
                 .map(Query1Stats::toCSV)
                 .sinkTo(QuerySinks.query1Csv(watermarkName))
                 .name("Query1 CSV Sink");

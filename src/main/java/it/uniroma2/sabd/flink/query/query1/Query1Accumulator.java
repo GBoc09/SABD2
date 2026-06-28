@@ -22,6 +22,8 @@ final class Query1Accumulator implements AggregateFunction<FlightEvent, Query1Ac
         boolean diverted = event.getDiverted() > 0.0;
 
         state.totalFlights++;
+        state.processingStartTimeMs =
+                Math.max(state.processingStartTimeMs, event.getProcessingStartTimeMs());
 
         if (cancelled) {
             state.cancelledFlights++;
@@ -72,7 +74,8 @@ final class Query1Accumulator implements AggregateFunction<FlightEvent, Query1Ac
                 state.divertedFlights,
                 avgDepDelay,
                 cancellationRate,
-                lateDepartureRate);
+                lateDepartureRate,
+                state.processingStartTimeMs);
     }
 
     @Override
@@ -85,6 +88,8 @@ final class Query1Accumulator implements AggregateFunction<FlightEvent, Query1Ac
         left.nonCancelledFlights += right.nonCancelledFlights;
         left.depDelaySum += right.depDelaySum;
         left.lateDepartureFlights += right.lateDepartureFlights;
+        left.processingStartTimeMs =
+                Math.max(left.processingStartTimeMs, right.processingStartTimeMs);
         return left;
     }
 
@@ -96,5 +101,6 @@ final class Query1Accumulator implements AggregateFunction<FlightEvent, Query1Ac
         private long nonCancelledFlights;
         private double depDelaySum;
         private long lateDepartureFlights;
+        private long processingStartTimeMs;
     }
 }

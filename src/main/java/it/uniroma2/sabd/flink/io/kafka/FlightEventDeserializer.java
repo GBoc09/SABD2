@@ -18,6 +18,8 @@ public class FlightEventDeserializer
             mapper.registerModule(new JavaTimeModule());
         }
 
-        return mapper.readValue(json, FlightEvent.class);
+        FlightEvent event = mapper.readValue(json, FlightEvent.class);
+        event.setProcessingStartTimeMs(System.currentTimeMillis());
+        return event;
     }
 }

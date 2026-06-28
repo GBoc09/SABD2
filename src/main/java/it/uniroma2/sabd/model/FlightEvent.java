@@ -2,7 +2,7 @@ package it.uniroma2.sabd.model;
 
 import java.time.LocalDateTime;
 
-public class FlightEvent implements HasProducedAt {
+public class FlightEvent implements HasProcessingStartTime {
 
     private LocalDateTime eventTime;
     private int year;
@@ -28,13 +28,22 @@ public class FlightEvent implements HasProducedAt {
     // questo evento a Kafka. Non fa parte del dominio del volo.
     // Valorizzato da KafkaFlightProducer con System.currentTimeMillis().
     private long producedAt;
+    // Timestamp ms in cui l'evento entra nella pipeline Flink.
+    private long processingStartTimeMs;
 
     public FlightEvent() {}
 
-    // --- HasProducedAt ---
+    // --- Producer timestamp ---
 
     public long getProducedAt() { return producedAt; }
     public void setProducedAt(long producedAt) { this.producedAt = producedAt; }
+
+    // --- HasProcessingStartTime ---
+
+    public long getProcessingStartTimeMs() { return processingStartTimeMs; }
+    public void setProcessingStartTimeMs(long processingStartTimeMs) {
+        this.processingStartTimeMs = processingStartTimeMs;
+    }
 
     // --- getters/setters invariati ---
     public LocalDateTime getEventTime() { return eventTime; }

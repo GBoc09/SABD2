@@ -7,6 +7,7 @@ final class Query3AggregatedStats {
     final double min;
     final double max;
     final TDigest digest;
+    final long processingStartTimeMs;
 
     /*
             • il numero di voli considerati;
@@ -21,10 +22,12 @@ final class Query3AggregatedStats {
             long count,
             double min,
             double max,
-            TDigest digest) {
+            TDigest digest,
+            long processingStartTimeMs) {
         this.count = count;
         this.min = min;
         this.max = max;
         this.digest = digest;
+        this.processingStartTimeMs = processingStartTimeMs;
     }
 }

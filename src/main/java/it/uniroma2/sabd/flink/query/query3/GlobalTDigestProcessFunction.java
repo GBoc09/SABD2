@@ -48,16 +48,21 @@ final class GlobalTDigestProcessFunction extends KeyedProcessFunction<Query3Key,
         long count = 1;
         double min = depDelay;
         double max = depDelay;
+        long processingStartTimeMs = event.getProcessingStartTimeMs();
 
         if (currentStats != null) {
             digest = currentStats.digest;
             count = currentStats.count + 1;
             min = Math.min(currentStats.min, depDelay);
             max = Math.max(currentStats.max, depDelay);
+            processingStartTimeMs =
+                    Math.max(currentStats.processingStartTimeMs, processingStartTimeMs);
         }
 
         digest.add(depDelay);
-        monthlyStatsState.put(monthStart, new Query3AggregatedStats(count, min, max, digest));
+        monthlyStatsState.put(
+                monthStart,
+                new Query3AggregatedStats(count, min, max, digest, processingStartTimeMs));
     }
 
     @Override
@@ -82,7 +87,8 @@ final class GlobalTDigestProcessFunction extends KeyedProcessFunction<Query3Key,
                     quantile(stats.digest, 0.50),
                     quantile(stats.digest, 0.75),
                     quantile(stats.digest, 0.90),
-                    stats.max));
+                    stats.max,
+                    stats.processingStartTimeMs));
         }
 
         long nextTimer = nextMonthlyTimer(timestamp);
@@ -102,6 +108,7 @@ final class GlobalTDigestProcessFunction extends KeyedProcessFunction<Query3Key,
         long count = 0L;
         double min = Double.POSITIVE_INFINITY;
         double max = Double.NEGATIVE_INFINITY;
+        long processingStartTimeMs = 0L;
         TDigest digest = TDigest.createDigest(100.0);
 
         for (Map.Entry<Long, Query3AggregatedStats> entry : monthlyStatsState.entries()) {
@@ -110,15 +117,17 @@ final class GlobalTDigestProcessFunction extends KeyedProcessFunction<Query3Key,
                 count += stats.count;
                 min = Math.min(min, stats.min);
                 max = Math.max(max, stats.max);
+                processingStartTimeMs =
+                        Math.max(processingStartTimeMs, stats.processingStartTimeMs);
                 digest.add(stats.digest);
             }
         }
 
         if (count == 0L) {
-            return new Query3AggregatedStats(0L, 0.0, 0.0, digest);
+            return new Query3AggregatedStats(0L, 0.0, 0.0, digest, 0L);
         }
 
-        return new Query3AggregatedStats(count, min, max, digest);
+        return new Query3AggregatedStats(count, min, max, digest, processingStartTimeMs);
     }
 
     private long eventTimestamp(Context ctx, FlightEvent event) {

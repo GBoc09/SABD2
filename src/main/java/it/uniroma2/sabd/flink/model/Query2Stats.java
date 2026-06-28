@@ -1,6 +1,7 @@
 package it.uniroma2.sabd.flink.model;
 
 import it.uniroma2.sabd.flink.io.sink.CsvValues;
+import it.uniroma2.sabd.model.HasProcessingStartTime;
 import java.io.Serializable;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -14,7 +15,7 @@ import java.util.stream.Collectors;
  * Usato sia come output di FinalizeQuery2Stats / GlobalQuery2ProcessFunction
  * sia come input/output di RankingProcessFunction (che aggiunge il campo rank).
  */
-public class Query2Stats implements Serializable {
+public class Query2Stats implements Serializable, HasProcessingStartTime {
 
     // Aggiunto formatter per combaciare ESATTAMENTE col PDF (no T, no Z)
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter
@@ -30,6 +31,7 @@ public class Query2Stats implements Serializable {
     private double depDelayMean;
     private double depDelayMax;
     private List<DelayedFlight> delayedFlights;
+    private long processingStartTimeMs;
 
     public Query2Stats() {}
 
@@ -41,7 +43,8 @@ public class Query2Stats implements Serializable {
             long severeDelays,
             double depDelayMean,
             double depDelayMax,
-            List<DelayedFlight> delayedFlights) {
+            List<DelayedFlight> delayedFlights,
+            long processingStartTimeMs) {
         this.windowStart    = windowStart;
         this.windowEnd      = windowEnd;
         this.originAirportId = originAirportId;
@@ -51,6 +54,7 @@ public class Query2Stats implements Serializable {
         this.depDelayMax    = depDelayMax;
         this.delayedFlights = delayedFlights;
         this.rank           = 0;
+        this.processingStartTimeMs = processingStartTimeMs;
     }
 
     // ts per la chiave di raggruppamento
@@ -73,6 +77,16 @@ public class Query2Stats implements Serializable {
     public double getDepDelayMean()         { return depDelayMean; }
     public double getDepDelayMax()          { return depDelayMax; }
     public List<DelayedFlight> getDelayedFlights() { return delayedFlights; }
+
+    @Override
+    public long getProcessingStartTimeMs() {
+        return processingStartTimeMs;
+    }
+
+    @Override
+    public void setProcessingStartTimeMs(long processingStartTimeMs) {
+        this.processingStartTimeMs = processingStartTimeMs;
+    }
 
     // Generatore CSV per il Sink (Aggiunto per risolvere il formato data)
     public String toCSV() {
