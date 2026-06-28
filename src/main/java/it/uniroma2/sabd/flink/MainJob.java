@@ -117,10 +117,6 @@ public class MainJob {
                 "Kafka Source");
     }
     
-    private static WatermarkStrategy<FlightEvent> createEventTimeAssigner(AppConfig config) {
-        return config.getWatermarkStrategy().create();
-    }
-
     private static void printStartupConfig(AppConfig config) {
         System.out.println("Avvio Flink Job con i seguenti parametri:");
         System.out.println(" - Kafka Brokers: " + config.getKafkaBootstrapServers());

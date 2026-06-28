@@ -14,38 +14,38 @@ EXPORTER_CLASSPATH="${EXPORTER_CLASSPATH:-target/classes:target/analisi-voli-1.0
 EXPORTER_CLASS="it.uniroma2.sabd.export.CSVExporter"
 DEFAULT_PARALLELISM="$(sed -n 's/^flink.parallelism=//p' src/main/resources/application.properties 2>/dev/null | tail -n 1)"
 PERFORMANCE_PARALLELISM="${PERFORMANCE_PARALLELISM:-${FLINK_PARALLELISM:-${DEFAULT_PARALLELISM:-4}}}"
+LOG_STAGING_DIR="$(mktemp -d)"
 PERFORMANCE_STAGING_DIR="$(mktemp -d)"
-trap 'rm -rf "$PERFORMANCE_STAGING_DIR"' EXIT
+trap 'rm -rf "$LOG_STAGING_DIR" "$PERFORMANCE_STAGING_DIR"' EXIT
 
 LATENCY_HEADER="timestamp_ms,label,source_subtask_index,window_start_ms,window_end_ms,window_duration_ms,window_events,total_events,min_latency_ms,max_latency_ms,avg_latency_ms"
 THROUGHPUT_HEADER="timestamp_ms,label,source_subtask_index,window_start_ms,window_end_ms,window_duration_ms,window_events,total_events,instant_throughput_events_per_second,average_throughput_events_per_second"
 
 echo "Esporto i log da ${SOURCE_CONTAINER}:${LOG_SOURCE_PATH}"
 
-rm -rf "$LOG_DEST_DIR"
 mkdir -p "$LOG_DEST_DIR"
 
-$COMPOSE_CMD cp "${SOURCE_CONTAINER}:${LOG_SOURCE_PATH}/." "$LOG_DEST_DIR"
+$COMPOSE_CMD cp "${SOURCE_CONTAINER}:${LOG_SOURCE_PATH}/." "$LOG_STAGING_DIR"
 
-sudo chown -R "$(id -u):$(id -g)" "$LOG_DEST_DIR"
+sudo chown -R "$(id -u):$(id -g)" "$LOG_STAGING_DIR"
+cp -a "$LOG_STAGING_DIR/." "$LOG_DEST_DIR"
 
 
 # 1. LATENCY MONITOR
-grep -h "LATENCY_MONITOR" "$LOG_DEST_DIR"/*.log \
+grep -h "LATENCY_MONITOR" "$LOG_STAGING_DIR"/*.log \
     > "$LOG_DEST_DIR/latency_report.log" || true
 
 # 2. THROUGHPUT MONITOR
-grep -h "THROUGHPUT_MONITOR" "$LOG_DEST_DIR"/*.log \
+grep -h "THROUGHPUT_MONITOR" "$LOG_STAGING_DIR"/*.log \
     > "$LOG_DEST_DIR/throughput_report.log" || true
 
 # 3. OUT OF ORDER REPORT
-grep -h "OUT_OF_ORDER_REPORT" "$LOG_DEST_DIR"/*.log \
+grep -h "OUT_OF_ORDER_REPORT" "$LOG_STAGING_DIR"/*.log \
     > "$LOG_DEST_DIR/out_of_order_report.log" || true
 echo "✓ Log esportati in: $LOG_DEST_DIR"
 
 echo "Esporto metriche performance da ${SOURCE_CONTAINER}:${PERFORMANCE_SOURCE_PATH}"
 
-rm -rf "$PERFORMANCE_DEST_DIR"
 mkdir -p "$PERFORMANCE_DEST_DIR"
 
 export_performance_csv() {

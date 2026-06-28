@@ -19,17 +19,14 @@ QUERY2_HEADER="ts,rank,origin_airport_id,num_flights,severe_delays,dep_delay_mea
 WINDOW_HEADER="ts,airline,hour,count,min,p25,p50,p75,p90,max"
 
 
-cleanup_output() {
-    echo "Pulizia output CSV precedenti..."
+prepare_output_dirs() {
+    echo "Preparo directory output CSV..."
     mkdir -p "${RESULT_DEST_DIR}"
-
-    find "${RESULT_DEST_DIR}" -type f -name "*.csv" -delete 2>/dev/null || true
-
     mkdir -p "${RESULT_DEST_DIR}/query1"
     mkdir -p "${RESULT_DEST_DIR}/query2"
     mkdir -p "${RESULT_DEST_DIR}/query3"
     
-    echo "✔ Output pulito"
+    echo "✔ Directory output pronte"
 }
 
 export_dataset() {
@@ -105,7 +102,7 @@ export_query3() {
 
 
 # Esecuzione funzioni
-cleanup_output
+prepare_output_dirs
 export_query1
 export_query2
 export_query3
