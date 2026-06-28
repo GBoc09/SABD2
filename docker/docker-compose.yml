@@ -105,7 +105,8 @@ services:
 
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_TOPIC=flights
-      - KAFKA_PARTITIONS=1
+      - KAFKA_PARTITIONS=2
+      - REPLAY_PRODUCER_COUNT=4
 
     networks:
       - streaming_processing_network

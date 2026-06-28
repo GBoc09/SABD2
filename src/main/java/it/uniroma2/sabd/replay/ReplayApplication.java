@@ -20,7 +20,8 @@ public class ReplayApplication {
         System.out.println("Kafka topic: " + config.getKafkaTopic() + " (Partitions: " + config.getKafkaPartitions() + ")");
         System.out.println("Acceleration factor: " + config.getAccelerationFactor() + "x");
         System.out.println("Replay producers: " + config.getProducerCount());
-        System.out.println("Replay Kafka partition: " + config.getReplayKafkaPartition());
+        System.out.println("Replay partition assignment: " + config.getProducerCount()
+                + " producers over " + config.getKafkaPartitions() + " Kafka partitions");
         System.out.println("Replay max initial network delay: " + config.getMaxNetworkDelayMillis() + " ms");
         System.out.println("Replay speed skew: +/-" + config.getSpeedSkewPercent() + "%");
         System.out.println("Replay random seed: " + config.getRandomSeed());
@@ -67,17 +68,37 @@ public class ReplayApplication {
                 new ArrayList<>();
 
         for (int i = 0; i < config.getProducerCount(); i++) {
+            int partition =
+                    partitionForProducer(
+                            i,
+                            config.getProducerCount(),
+                            config.getKafkaPartitions()
+                    );
+
+            System.out.println("Replay producer " + i + " -> Kafka partition " + partition);
+
             producers.add(
                     new KafkaFlightProducer(
                             config.getKafkaBootstrapServers(),
                             config.getKafkaTopic(),
-                            config.getReplayKafkaPartition(),
+                            partition,
                             "flight-replay-producer-" + i
                     )
             );
         }
 
         return producers;
+    }
+
+    private static int partitionForProducer(
+            int producerIndex,
+            int producerCount,
+            int partitionCount) {
+
+        return Math.min(
+                (producerIndex * partitionCount) / producerCount,
+                partitionCount - 1
+        );
     }
 
     private static void closeProducers(List<KafkaFlightProducer> producers) {

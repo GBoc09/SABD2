@@ -3,8 +3,8 @@ set -e
 
 COMPOSE_CMD="sudo docker compose --env-file docker/.env -f docker/docker-compose.yml"
 KAFKA_TOPIC="flights"
-KAFKA_PARTITIONS="1"
-FLINK_PARALLELISM="4"
+KAFKA_PARTITIONS="2"
+FLINK_PARALLELISM="2"
 FLINK_WATERMARK=""
 
 usage() {
