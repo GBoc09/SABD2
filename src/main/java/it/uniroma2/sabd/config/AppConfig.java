@@ -2,8 +2,10 @@ package it.uniroma2.sabd.config;
 
 import it.uniroma2.sabd.flink.engineering.watermarks.BoundedOutOfOrderStrategy;
 import it.uniroma2.sabd.flink.engineering.watermarks.AdaptiveStrategy;
+import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkType;
 import org.apache.flink.api.java.utils.ParameterTool;
 import java.io.InputStream;
+import java.util.Locale;
 import java.util.Properties;
 import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkFactory;
 
@@ -15,6 +17,7 @@ public class AppConfig {
 
     // Watermark
     private final long watermarkMaxOutOfOrderMs;
+    private final WatermarkType watermarkType;
 
     // Metrics
     private final long metricsThroughputIntervalMs;
@@ -48,6 +51,11 @@ public class AppConfig {
                 System.getenv().getOrDefault("FLINK_WATERMARK_MS",
                         props.getProperty("flink.watermark.max.out.of.order.ms", "600000")));
 
+        this.watermarkType = parseWatermarkType(
+                params.get("watermark",
+                        System.getenv().getOrDefault("FLINK_WATERMARK_TYPE",
+                                props.getProperty("flink.watermark.type", ""))));
+
         this.metricsThroughputIntervalMs = Long.parseLong(
                 props.getProperty("metrics.throughput.report.interval.ms", "5000"));
 
@@ -74,10 +82,25 @@ public class AppConfig {
         return new AppConfig(ParameterTool.fromArgs(args));
     }
 
+    private WatermarkType parseWatermarkType(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Watermark mancante. Specificare --watermark WM15, --watermark WM100 oppure --watermark ADAPTIVE.");
+        }
+
+        try {
+            return WatermarkType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Watermark non valido: " + value + ". Valori ammessi: WM15, WM100, ADAPTIVE.", e);
+        }
+    }
+
     public String getKafkaBootstrapServers()      { return kafkaBootstrapServers; }
     public String getKafkaTopic()                 { return kafkaTopic; }
     public int    getFlinkParallelism()           { return flinkParallelism; }
     public long   getWatermarkMaxOutOfOrderMs()   { return watermarkMaxOutOfOrderMs; }
+    public WatermarkType getWatermarkType()        { return watermarkType; }
     public long   getMetricsThroughputIntervalMs(){ return metricsThroughputIntervalMs; }
     public long   getMetricsLatencyIntervalMs()   { return metricsLatencyIntervalMs; }
     public String getPerformanceOutputPath()       { return performanceOutputPath; }

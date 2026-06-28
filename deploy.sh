@@ -2,13 +2,81 @@
 set -e
 
 COMPOSE_CMD="sudo docker compose --env-file docker/.env -f docker/docker-compose.yml"
-KAFKA_TOPIC="${KAFKA_TOPIC:-flights}"
-KAFKA_PARTITIONS="${KAFKA_PARTITIONS:-1}"
-FLINK_PARALLELISM="${FLINK_PARALLELISM:-4}"
+KAFKA_TOPIC="flights"
+KAFKA_PARTITIONS="1"
+FLINK_PARALLELISM="4"
+FLINK_WATERMARK=""
+
+usage() {
+    echo "Uso: $0 --watermark WM15|WM100|ADAPTIVE [--parallelism N]"
+    echo ""
+    echo "Esempi:"
+    echo "  $0 --watermark WM15"
+    echo "  $0 --watermark WM100 --parallelism 2"
+    echo "  $0 --watermark ADAPTIVE --parallelism 4"
+}
+
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+    usage
+    exit 0
+fi
+
+if [ "$#" -lt 2 ] || [ "$1" != "--watermark" ]; then
+    echo "Errore: devi specificare il watermark da eseguire."
+    usage
+    exit 1
+fi
+
+FLINK_WATERMARK="${2^^}"
+shift 2
+
+if [ "$#" -gt 0 ]; then
+    if [ "$#" -ne 2 ] || [ "$1" != "--parallelism" ]; then
+        echo "Errore: l'unico parametro opzionale ammesso e' --parallelism N."
+        usage
+        exit 1
+    fi
+
+    FLINK_PARALLELISM="$2"
+fi
+
+case "$FLINK_WATERMARK" in
+    WM15|WM100|ADAPTIVE)
+        ;;
+    "")
+        echo "Errore: devi specificare un watermark."
+        usage
+        exit 1
+        ;;
+    *)
+        echo "Errore: watermark non valido: $FLINK_WATERMARK"
+        usage
+        exit 1
+        ;;
+esac
+
+case "$FLINK_PARALLELISM" in
+    ""|*[!0-9]*)
+        echo "Errore: --parallelism deve essere un intero positivo."
+        usage
+        exit 1
+        ;;
+esac
+
+if [ "$FLINK_PARALLELISM" -lt 1 ]; then
+    echo "Errore: --parallelism deve essere almeno 1."
+    usage
+    exit 1
+fi
 
 echo "=============================================="
 echo "   Avvio Pipeline Streaming - SABD2           "
 echo "=============================================="
+echo ""
+echo "Configurazione run:"
+echo " - Watermark:    $FLINK_WATERMARK"
+echo " - Kafka topic:  $KAFKA_TOPIC"
+echo " - Parallelismo: $FLINK_PARALLELISM"
 echo ""
 
 echo "[1/6] Compilazione del progetto Java..."
@@ -89,13 +157,28 @@ create_kafka_topic() {
         --replication-factor 1
 }
 
+ensure_no_running_flink_jobs() {
+    echo "Controllo che non ci siano job Flink gia' attivi..."
+
+    local running_jobs
+    running_jobs=$($COMPOSE_CMD exec -T jobmanager flink list 2>/dev/null | grep RUNNING | awk '{print $4}' || true)
+
+    if [ -n "$running_jobs" ]; then
+        echo "Errore: esiste gia' almeno un job Flink RUNNING:"
+        echo "$running_jobs"
+        echo "Esporta i risultati, ferma il job attivo e poi rilancia deploy.sh con il watermark successivo."
+        exit 1
+    fi
+}
+
 wait_for_kafka
 create_kafka_topic
 
 wait_for_hdfs_file "/nifi_output/merge.csv"
 
 echo "[4/6] Avvio del Job Flink..."
-$COMPOSE_CMD run --rm flink-job bash -c "sleep 10 && flink run -d -m jobmanager:8081 -c it.uniroma2.sabd.flink.MainJob /opt/flink/usrlib/analisi-voli-1.0.0.jar --brokers kafka:9092 --topic $KAFKA_TOPIC --parallelism $FLINK_PARALLELISM"
+ensure_no_running_flink_jobs
+$COMPOSE_CMD run --rm flink-job bash -c "sleep 10 && flink run -d -m jobmanager:8081 -c it.uniroma2.sabd.flink.MainJob /opt/flink/usrlib/analisi-voli-1.0.0.jar --brokers kafka:9092 --topic $KAFKA_TOPIC --parallelism $FLINK_PARALLELISM --watermark $FLINK_WATERMARK"
 echo "Job Flink sottomesso al cluster."
 
 echo ""

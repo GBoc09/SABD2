@@ -36,48 +36,46 @@ public class MainJob {
         env.setParallelism(config.getFlinkParallelism());
 
         DataStream<FlightEvent> rawStream = buildRawFlightStream(env, config);
+        WatermarkType watermarkType = config.getWatermarkType();
+        String watermarkName = watermarkType.name();
 
-        for (WatermarkType type : WatermarkType.values()) {
-            String watermarkName = type.name();
-            DataStream<FlightEvent> wmStream =
-                    rawStream.assignTimestampsAndWatermarks(
-                            WatermarkRegistry
-                                    .get(type, config)
-                                    .create());
+        DataStream<FlightEvent> wmStream =
+                rawStream.assignTimestampsAndWatermarks(
+                        WatermarkRegistry
+                                .get(watermarkType, config)
+                                .create());
 
-            SingleOutputStreamOperator<FlightEvent> watermarkCheckedStream = wmStream
-                    .process(new WatermarkLateEventDetector())
-                    .name("Watermark Late Event Detector " + watermarkName);
+        SingleOutputStreamOperator<FlightEvent> watermarkCheckedStream = wmStream
+                .process(new WatermarkLateEventDetector())
+                .name("Watermark Late Event Detector " + watermarkName);
 
-            watermarkCheckedStream
-                    .getSideOutput(WatermarkLateEventDetector.LATE_AFTER_WATERMARK_TAG)
-                    .sinkTo(QuerySinks.watermarkLateEventsCsv(watermarkName))
-                    .name("Watermark Late Events CSV Sink " + watermarkName);
+        watermarkCheckedStream
+                .getSideOutput(WatermarkLateEventDetector.LATE_AFTER_WATERMARK_TAG)
+                .sinkTo(QuerySinks.watermarkLateEventsCsv(watermarkName))
+                .name("Watermark Late Events CSV Sink " + watermarkName);
 
-            SingleOutputStreamOperator<FlightEvent> latencyMonitoredStream = watermarkCheckedStream
-                    .process(new LatencyMonitor<>("producer->flink-" + watermarkName,
-                            config.getMetricsLatencyIntervalMs()))
-                    .name("Latency Monitor " + watermarkName);
+        SingleOutputStreamOperator<FlightEvent> latencyMonitoredStream = watermarkCheckedStream
+                .process(new LatencyMonitor<>("producer->flink-" + watermarkName,
+                        config.getMetricsLatencyIntervalMs()))
+                .name("Latency Monitor " + watermarkName);
 
-            SingleOutputStreamOperator<FlightEvent> monitoredStream = latencyMonitoredStream
-                    .process(new ThroughputMonitor<>("watermark-" + watermarkName,
-                            config.getMetricsThroughputIntervalMs()))
-                    .name("Throughput Monitor " + watermarkName);
+        SingleOutputStreamOperator<FlightEvent> monitoredStream = latencyMonitoredStream
+                .process(new ThroughputMonitor<>("watermark-" + watermarkName,
+                        config.getMetricsThroughputIntervalMs()))
+                .name("Throughput Monitor " + watermarkName);
 
-            PerformanceSinks.writeLatencyCsv(
-                    latencyMonitoredStream.getSideOutput(PerformanceMetricTags.LATENCY),
-                    config.getPerformanceOutputPath() + "/" + watermarkName);
-            PerformanceSinks.writeThroughputCsv(
-                    monitoredStream.getSideOutput(PerformanceMetricTags.THROUGHPUT),
-                    config.getPerformanceOutputPath() + "/" + watermarkName);
+        PerformanceSinks.writeLatencyCsv(
+                latencyMonitoredStream.getSideOutput(PerformanceMetricTags.LATENCY),
+                config.getPerformanceOutputPath() + "/" + watermarkName);
+        PerformanceSinks.writeThroughputCsv(
+                monitoredStream.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                config.getPerformanceOutputPath() + "/" + watermarkName);
 
-            FlightQueryController controller = new FlightQueryController(config, watermarkName);
-            controller.buildQueries(monitoredStream);
-            System.out.println("Avvio query con watermark: " + watermarkName);
-
-        }
+        FlightQueryController controller = new FlightQueryController(config, watermarkName);
+        controller.buildQueries(monitoredStream);
+        System.out.println("Avvio query con watermark: " + watermarkName);
             
-        env.execute("Flight Out-Of-Order Monitor");
+        env.execute("Flight Out-Of-Order Monitor " + watermarkName);
     }
 
     private static DataStream<FlightEvent> buildRawFlightStream(
@@ -128,6 +126,7 @@ public class MainJob {
         System.out.println(" - Kafka Brokers: " + config.getKafkaBootstrapServers());
         System.out.println(" - Kafka Topic:   " + config.getKafkaTopic());
         System.out.println(" - Parallelismo:  " + config.getFlinkParallelism());
+        System.out.println(" - Watermark:     " + config.getWatermarkType());
         System.out.println(" - Performance:   " + config.getPerformanceOutputPath());
     }
 }
