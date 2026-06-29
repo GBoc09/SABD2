@@ -47,7 +47,7 @@ public final class Query2 {
                 .window(TumblingEventTimeWindows.of(Duration.ofHours(1)))
                 .aggregate(new Query2Accumulator(), new FinalizeQuery2Stats())
                 .name("Q2 aggregate 1h")
-                .keyBy(Query2Stats::getWindowStartEpoch)
+                .keyBy(Query2Stats::getWindowEndEpoch)
                 .process(new RankingProcessFunction())
                 .name("Q2 ranking 1h");
 
@@ -57,7 +57,7 @@ public final class Query2 {
                 .window(TumblingEventTimeWindows.of(Duration.ofHours(6)))
                 .aggregate(new Query2Accumulator(), new FinalizeQuery2Stats())
                 .name("Q2 aggregate 6h")
-                .keyBy(Query2Stats::getWindowStartEpoch)
+                .keyBy(Query2Stats::getWindowEndEpoch)
                 .process(new RankingProcessFunction())
                 .name("Q2 ranking 6h");*/
 
@@ -69,7 +69,7 @@ public final class Query2 {
 
         SingleOutputStreamOperator<Query2Stats> ranking1h = aggregated1h
                 .name("Q2 aggregate 1h")
-                .keyBy(Query2Stats::getWindowStartEpoch)
+                .keyBy(Query2Stats::getWindowEndEpoch)
                 .process(new RankingProcessFunction())
                 .name("Q2 ranking 1h");
 
@@ -81,7 +81,7 @@ public final class Query2 {
 
         SingleOutputStreamOperator<Query2Stats> ranking6h = aggregated6h
                 .name("Q2 aggregate 6h")
-                .keyBy(Query2Stats::getWindowStartEpoch)
+                .keyBy(Query2Stats::getWindowEndEpoch)
                 .process(new RankingProcessFunction())
                 .name("Q2 ranking 6h");
 

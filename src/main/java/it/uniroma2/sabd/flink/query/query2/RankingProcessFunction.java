@@ -13,7 +13,7 @@ import org.apache.flink.util.Collector;
 /**
  * Secondo stage del pipeline Q2.
  * Riceve Query2Stats per aeroporto (già filtrati per MIN_FLIGHTS),
- * li accumula per finestra (chiave = windowStartEpoch),
+ * li accumula per finestra/snapshot (chiave = windowEndEpoch),
  * e al timer emette la classifica top-10 ordinata per severeDelays desc.
  * Stesso pattern di GlobalTDigestProcessFunction:
  * KeyedProcessFunction + ListState + timer.

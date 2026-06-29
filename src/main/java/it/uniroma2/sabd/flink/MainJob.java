@@ -2,6 +2,7 @@ package it.uniroma2.sabd.flink;
 
 import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.controller.FlightQueryController;
+import it.uniroma2.sabd.flink.controller.GlobalThroughputAggregator;
 import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
 import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
 import it.uniroma2.sabd.flink.controller.WatermarkLateEventDetector;
@@ -9,6 +10,7 @@ import it.uniroma2.sabd.flink.io.kafka.FlightEventDeserializer;
 import it.uniroma2.sabd.flink.io.kafka.FlightKafkaSourceFactory;
 import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
+import it.uniroma2.sabd.flink.model.ThroughputMetric;
 import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkType;
 import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkRegistry;
@@ -22,6 +24,9 @@ import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
+
+import java.time.Duration;
 
 
 public class MainJob {
@@ -58,8 +63,18 @@ public class MainJob {
                         config.getMetricsThroughputIntervalMs()))
                 .name("Throughput Monitor " + watermarkName);
 
+        DataStream<ThroughputMetric> globalThroughputMetrics =
+                monitoredStream
+                        .getSideOutput(PerformanceMetricTags.THROUGHPUT)
+                        .keyBy(ThroughputMetric::getLabel)
+                        .window(TumblingProcessingTimeWindows.of(
+                                Duration.ofMillis(config.getMetricsThroughputIntervalMs())))
+                        .process(new GlobalThroughputAggregator())
+                        .name("Global Throughput Aggregator")
+                        .setParallelism(1);
+
         PerformanceSinks.writeThroughputCsv(
-                monitoredStream.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                globalThroughputMetrics,
                 config.getPerformanceOutputPath() + "/" + watermarkName);
 
         FlightQueryController controller = new FlightQueryController(config, watermarkName);

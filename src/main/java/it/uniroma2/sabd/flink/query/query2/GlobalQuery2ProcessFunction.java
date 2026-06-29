@@ -2,6 +2,7 @@ package it.uniroma2.sabd.flink.query.query2;
 
 import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.flink.model.Query2Stats;
+import it.uniroma2.sabd.flink.model.Query2GlobalStats;
 import it.uniroma2.sabd.flink.model.Query2Stats.DelayedFlight;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -49,6 +50,15 @@ final class GlobalQuery2ProcessFunction
     @Override
     public void processElement(FlightEvent event, Context ctx, Collector<Query2Stats> out) throws Exception {
         long eventTimestamp = eventTimestamp(ctx, event);
+        long currentWatermark = ctx.timerService().currentWatermark();
+
+        // FIX (Punto 2): Scarta se late, coerente con le finestre 1h/6h.
+        // Il WatermarkLateEventDetector ha già segnalato l'evento nei log se necessario,
+        // qui lo droppiamo definitivamente per non inquinare il calcolo globale.
+        if (currentWatermark != Long.MIN_VALUE && eventTimestamp <= currentWatermark) {
+            return;
+        }
+
         long monthStart = monthStart(eventTimestamp);
         Query2Accumulator.State state = monthlyStatsState.get(monthStart);
         if (state == null) {
@@ -67,7 +77,7 @@ final class GlobalQuery2ProcessFunction
             state.delayedFlights.add(
                     new DelayedFlight(
                             event.getCarrier(),
-                            event.getDestAirportId(), // FIX: Destinazione, non Origine
+                            event.getDestAirportId(),
                             event.getDepDelay()));
 
             if (state.delayedFlights.size() > MAX_DELAYED_FLIGHTS) {
@@ -103,9 +113,10 @@ final class GlobalQuery2ProcessFunction
                     ? new ArrayList<>(state.delayedFlights.subList(0, MAX_DELAYED_FLIGHTS))
                     : new ArrayList<>(state.delayedFlights);
 
-            out.collect(new Query2Stats(
-                    Instant.ofEpochMilli(timestamp),
-                    Instant.ofEpochMilli(timestamp),
+            // FIX (Punto 1): Emettiamo Query2GlobalStats invece di Query2Stats
+            out.collect(new Query2GlobalStats(
+                    Instant.ofEpochMilli(globalStart(timestamp)), // windowStart (Inizio Anno)
+                    Instant.ofEpochMilli(timestamp),              // windowEnd (Timestamp dello Snapshot)
                     state.originAirportId,
                     state.numFlights,
                     state.severeDelays,
@@ -173,6 +184,15 @@ final class GlobalQuery2ProcessFunction
                 .withDayOfMonth(1)
                 .truncatedTo(ChronoUnit.DAYS)
                 .plusMonths(1)
+                .toInstant()
+                .toEpochMilli();
+    }
+
+    private long globalStart(long timestamp) {
+        return Instant.ofEpochMilli(timestamp)
+                .atZone(ZoneOffset.UTC)
+                .withDayOfYear(1)
+                .truncatedTo(ChronoUnit.DAYS)
                 .toInstant()
                 .toEpochMilli();
     }
