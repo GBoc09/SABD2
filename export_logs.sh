@@ -12,8 +12,7 @@ PERFORMANCE_SOURCE_PATH="${PERFORMANCE_SOURCE_PATH:-/opt/flink/performance}"
 PERFORMANCE_DEST_DIR="${PERFORMANCE_DEST_DIR:-./performance}"
 EXPORTER_CLASSPATH="${EXPORTER_CLASSPATH:-target/classes:target/analisi-voli-1.0.0.jar}"
 EXPORTER_CLASS="it.uniroma2.sabd.export.CSVExporter"
-DEFAULT_PARALLELISM="$(sed -n 's/^flink.parallelism=//p' src/main/resources/application.properties 2>/dev/null | tail -n 1)"
-PERFORMANCE_PARALLELISM="${PERFORMANCE_PARALLELISM:-${FLINK_PARALLELISM:-${DEFAULT_PARALLELISM:-4}}}"
+PERFORMANCE_PARALLELISM="${PERFORMANCE_PARALLELISM:-${FLINK_PARALLELISM:-}}"
 LOG_STAGING_DIR="$(mktemp -d)"
 PERFORMANCE_STAGING_DIR="$(mktemp -d)"
 trap 'rm -rf "$LOG_STAGING_DIR" "$PERFORMANCE_STAGING_DIR"' EXIT
@@ -21,7 +20,62 @@ trap 'rm -rf "$LOG_STAGING_DIR" "$PERFORMANCE_STAGING_DIR"' EXIT
 LATENCY_HEADER="timestamp_ms,label,source_subtask_index,window_start_ms,window_end_ms,window_duration_ms,window_events,total_events,min_latency_ms,max_latency_ms,avg_latency_ms"
 THROUGHPUT_HEADER="timestamp_ms,label,source_subtask_index,window_start_ms,window_end_ms,window_duration_ms,window_events,total_events,instant_throughput_events_per_second,average_throughput_events_per_second"
 
+usage() {
+    echo "Uso: $0 --parallelism N"
+    echo ""
+    echo "Esempi:"
+    echo "  $0 --parallelism 2"
+    echo "  PERFORMANCE_PARALLELISM=2 $0"
+    echo ""
+    echo "Il parallelismo e' richiesto per non etichettare i CSV con un valore implicito o vecchio."
+}
+
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+    usage
+    exit 0
+fi
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --parallelism)
+            if [ "$#" -lt 2 ]; then
+                echo "Errore: --parallelism richiede un valore."
+                usage
+                exit 1
+            fi
+            PERFORMANCE_PARALLELISM="$2"
+            shift 2
+            ;;
+        *)
+            echo "Errore: parametro non valido: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [ -z "$PERFORMANCE_PARALLELISM" ]; then
+    echo "Errore: specifica il parallelismo usato dalla run esportata."
+    usage
+    exit 1
+fi
+
+case "$PERFORMANCE_PARALLELISM" in
+    ""|*[!0-9]*)
+        echo "Errore: --parallelism deve essere un intero positivo."
+        usage
+        exit 1
+        ;;
+esac
+
+if [ "$PERFORMANCE_PARALLELISM" -lt 1 ]; then
+    echo "Errore: --parallelism deve essere almeno 1."
+    usage
+    exit 1
+fi
+
 echo "Esporto i log da ${SOURCE_CONTAINER}:${LOG_SOURCE_PATH}"
+echo "Parallelismo metriche: ${PERFORMANCE_PARALLELISM}"
 
 mkdir -p "$LOG_DEST_DIR"
 

@@ -2,15 +2,10 @@ package it.uniroma2.sabd.flink;
 
 import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.controller.FlightQueryController;
-import it.uniroma2.sabd.flink.controller.GlobalThroughputAggregator;
-import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
-import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
 import it.uniroma2.sabd.flink.controller.WatermarkLateEventDetector;
 import it.uniroma2.sabd.flink.io.kafka.FlightEventDeserializer;
 import it.uniroma2.sabd.flink.io.kafka.FlightKafkaSourceFactory;
-import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
-import it.uniroma2.sabd.flink.model.ThroughputMetric;
 import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkType;
 import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkRegistry;
@@ -24,9 +19,6 @@ import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
-
-import java.time.Duration;
 
 
 public class MainJob {
@@ -40,14 +32,27 @@ public class MainJob {
         env.setParallelism(config.getFlinkParallelism());
 
         DataStream<FlightEvent> rawStream = buildRawFlightStream(env, config);
-        WatermarkType watermarkType = config.getWatermarkType();
+
+        for (WatermarkType watermarkType : WatermarkType.values()) {
+            buildWatermarkPipeline(rawStream, config, watermarkType);
+        }
+            
+        env.execute("Flight Watermark Strategy Comparison");
+    }
+
+    private static void buildWatermarkPipeline(
+            DataStream<FlightEvent> rawStream,
+            AppConfig config,
+            WatermarkType watermarkType) {
+
         String watermarkName = watermarkType.name();
 
         DataStream<FlightEvent> wmStream =
                 rawStream.assignTimestampsAndWatermarks(
                         WatermarkRegistry
                                 .get(watermarkType, config)
-                                .create());
+                                .create())
+                        .name("Assign Event Time " + watermarkName);
 
         SingleOutputStreamOperator<FlightEvent> watermarkCheckedStream = wmStream
                 .process(new WatermarkLateEventDetector())
@@ -58,30 +63,9 @@ public class MainJob {
                 .sinkTo(QuerySinks.watermarkLateEventsCsv(watermarkName))
                 .name("Watermark Late Events CSV Sink " + watermarkName);
 
-        SingleOutputStreamOperator<FlightEvent> monitoredStream = watermarkCheckedStream
-                .process(new ThroughputMonitor<>("watermark-" + watermarkName,
-                        config.getMetricsThroughputIntervalMs()))
-                .name("Throughput Monitor " + watermarkName);
-
-        DataStream<ThroughputMetric> globalThroughputMetrics =
-                monitoredStream
-                        .getSideOutput(PerformanceMetricTags.THROUGHPUT)
-                        .keyBy(ThroughputMetric::getLabel)
-                        .window(TumblingProcessingTimeWindows.of(
-                                Duration.ofMillis(config.getMetricsThroughputIntervalMs())))
-                        .process(new GlobalThroughputAggregator())
-                        .name("Global Throughput Aggregator")
-                        .setParallelism(1);
-
-        PerformanceSinks.writeThroughputCsv(
-                globalThroughputMetrics,
-                config.getPerformanceOutputPath() + "/" + watermarkName);
-
         FlightQueryController controller = new FlightQueryController(config, watermarkName);
-        controller.buildQueries(monitoredStream);
+        controller.buildQueries(watermarkCheckedStream);
         System.out.println("Avvio query con watermark: " + watermarkName);
-            
-        env.execute("Flight Out-Of-Order Monitor " + watermarkName);
     }
 
     private static DataStream<FlightEvent> buildRawFlightStream(
@@ -128,7 +112,7 @@ public class MainJob {
         System.out.println(" - Kafka Brokers: " + config.getKafkaBootstrapServers());
         System.out.println(" - Kafka Topic:   " + config.getKafkaTopic());
         System.out.println(" - Parallelismo:  " + config.getFlinkParallelism());
-        System.out.println(" - Watermark:     " + config.getWatermarkType());
+        System.out.println(" - Watermark:     WM15, WM100, ADAPTIVE");
         System.out.println(" - Performance:   " + config.getPerformanceOutputPath());
     }
 }

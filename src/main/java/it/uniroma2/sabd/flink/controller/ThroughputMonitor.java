@@ -1,6 +1,7 @@
 package it.uniroma2.sabd.flink.controller;
 
 import it.uniroma2.sabd.flink.model.ThroughputMetric;
+import it.uniroma2.sabd.model.HasProcessingStartTime;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.util.Collector;
@@ -10,16 +11,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Operatore passthrough che misura il throughput della pipeline.
- * Non modifica gli eventi — li conta e li riemette invariati.
+ * Operatore passthrough che misura il throughput nel punto in cui viene
+ * agganciato alla pipeline. Se usato sui risultati delle query, conta i
+ * risultati prodotti dalle query nello stesso punto in cui viene misurata la
+ * latenza.
  */
-public class ThroughputMonitor<T> extends ProcessFunction<T, T> {
+public class ThroughputMonitor<T extends HasProcessingStartTime> extends ProcessFunction<T, T> {
 
     private final String label;
     private final long reportIntervalMs;
     private final OutputTag<ThroughputMetric> metricOutputTag;
 
     private transient long totalEvents;
+    private transient long skippedEvents;
     private transient long windowEvents;
     private transient long startMs;
     private transient long windowStartMs;
@@ -44,6 +48,7 @@ public class ThroughputMonitor<T> extends ProcessFunction<T, T> {
     @Override
     public void open(Configuration parameters) {
         totalEvents   = 0;
+        skippedEvents = 0;
         windowEvents  = 0;
         startMs       = System.currentTimeMillis();
         windowStartMs = startMs;
@@ -52,6 +57,18 @@ public class ThroughputMonitor<T> extends ProcessFunction<T, T> {
 
     @Override
     public void processElement(T event, Context ctx, Collector<T> out) {
+        if (event.getProcessingStartTimeMs() <= 0) {
+            skippedEvents++;
+            if (skippedEvents == 1) {
+                LOG.warn(
+                        "THROUGHPUT_MONITOR label={} subtask={} skipped event without processingStartTimeMs",
+                        label,
+                        subtaskIndex);
+            }
+            out.collect(event);
+            return;
+        }
+
         totalEvents++;
         windowEvents++;
 

@@ -5,6 +5,7 @@ import static it.uniroma2.sabd.flink.query.TargetAirlines.TARGET_AIRLINES;
 import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.controller.LatencyMonitor;
 import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
+import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
 import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.model.FlightEvent;
@@ -41,14 +42,24 @@ public final class Query1 {
                         new FinalizeQuery1Stats()
                 );
 
-        SingleOutputStreamOperator<Query1Stats> monitoredStats = stats
-                .process(new LatencyMonitor<>("q1-1h-result-" + watermarkName,
+        String resultLabel = "q1-1h-result-" + watermarkName;
+
+        SingleOutputStreamOperator<Query1Stats> latencyMonitoredStats = stats
+                .process(new LatencyMonitor<>(resultLabel,
                         config.getMetricsLatencyIntervalMs()))
                 .name("Q1 1h Result Latency Monitor");
 
+        SingleOutputStreamOperator<Query1Stats> monitoredStats = latencyMonitoredStats
+                .process(new ThroughputMonitor<>(resultLabel,
+                        config.getMetricsThroughputIntervalMs()))
+                .name("Q1 1h Result Throughput Monitor");
+
         PerformanceSinks.writeLatencyCsvAtPath(
-                monitoredStats.getSideOutput(PerformanceMetricTags.LATENCY),
+                latencyMonitoredStats.getSideOutput(PerformanceMetricTags.LATENCY),
                 config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q1_1h");
+        PerformanceSinks.writeThroughputCsvAtPath(
+                monitoredStats.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q1_1h");
 
         monitoredStats
                 .map(Query1Stats::toCSV)

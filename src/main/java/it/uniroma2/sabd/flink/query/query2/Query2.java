@@ -3,6 +3,7 @@ package it.uniroma2.sabd.flink.query.query2;
 import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.controller.LatencyMonitor;
 import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
+import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
 import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.model.FlightEvent;
@@ -94,30 +95,58 @@ public final class Query2 {
                 .process(new RankingProcessFunction())
                 .name("Q2 ranking global");
 
-        SingleOutputStreamOperator<Query2Stats> monitoredRanking1h = ranking1h
-                .process(new LatencyMonitor<>("q2-1h-result-" + watermarkName,
+        String result1hLabel = "q2-1h-result-" + watermarkName;
+        String result6hLabel = "q2-6h-result-" + watermarkName;
+        String resultGlobalLabel = "q2-global-result-" + watermarkName;
+
+        SingleOutputStreamOperator<Query2Stats> latencyMonitoredRanking1h = ranking1h
+                .process(new LatencyMonitor<>(result1hLabel,
                         config.getMetricsLatencyIntervalMs()))
                 .name("Q2 1h Result Latency Monitor");
 
-        SingleOutputStreamOperator<Query2Stats> monitoredRanking6h = ranking6h
-                .process(new LatencyMonitor<>("q2-6h-result-" + watermarkName,
+        SingleOutputStreamOperator<Query2Stats> monitoredRanking1h = latencyMonitoredRanking1h
+                .process(new ThroughputMonitor<>(result1hLabel,
+                        config.getMetricsThroughputIntervalMs()))
+                .name("Q2 1h Result Throughput Monitor");
+
+        SingleOutputStreamOperator<Query2Stats> latencyMonitoredRanking6h = ranking6h
+                .process(new LatencyMonitor<>(result6hLabel,
                         config.getMetricsLatencyIntervalMs()))
                 .name("Q2 6h Result Latency Monitor");
 
-        SingleOutputStreamOperator<Query2Stats> monitoredRankingGlobal = rankingGlobal
-                .process(new LatencyMonitor<>("q2-global-result-" + watermarkName,
+        SingleOutputStreamOperator<Query2Stats> monitoredRanking6h = latencyMonitoredRanking6h
+                .process(new ThroughputMonitor<>(result6hLabel,
+                        config.getMetricsThroughputIntervalMs()))
+                .name("Q2 6h Result Throughput Monitor");
+
+        SingleOutputStreamOperator<Query2Stats> latencyMonitoredRankingGlobal = rankingGlobal
+                .process(new LatencyMonitor<>(resultGlobalLabel,
                         config.getMetricsLatencyIntervalMs()))
                 .name("Q2 Global Result Latency Monitor");
 
+        SingleOutputStreamOperator<Query2Stats> monitoredRankingGlobal = latencyMonitoredRankingGlobal
+                .process(new ThroughputMonitor<>(resultGlobalLabel,
+                        config.getMetricsThroughputIntervalMs()))
+                .name("Q2 Global Result Throughput Monitor");
+
         PerformanceSinks.writeLatencyCsvAtPath(
-                monitoredRanking1h.getSideOutput(PerformanceMetricTags.LATENCY),
+                latencyMonitoredRanking1h.getSideOutput(PerformanceMetricTags.LATENCY),
                 config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q2_1h");
         PerformanceSinks.writeLatencyCsvAtPath(
-                monitoredRanking6h.getSideOutput(PerformanceMetricTags.LATENCY),
+                latencyMonitoredRanking6h.getSideOutput(PerformanceMetricTags.LATENCY),
                 config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q2_6h");
         PerformanceSinks.writeLatencyCsvAtPath(
-                monitoredRankingGlobal.getSideOutput(PerformanceMetricTags.LATENCY),
+                latencyMonitoredRankingGlobal.getSideOutput(PerformanceMetricTags.LATENCY),
                 config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q2_global");
+        PerformanceSinks.writeThroughputCsvAtPath(
+                monitoredRanking1h.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q2_1h");
+        PerformanceSinks.writeThroughputCsvAtPath(
+                monitoredRanking6h.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q2_6h");
+        PerformanceSinks.writeThroughputCsvAtPath(
+                monitoredRankingGlobal.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q2_global");
 
         // --- sink CSV ---
         monitoredRanking1h

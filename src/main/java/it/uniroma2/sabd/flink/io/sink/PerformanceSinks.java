@@ -34,10 +34,16 @@ public final class PerformanceSinks {
     public static void writeThroughputCsv(
             DataStream<ThroughputMetric> metrics,
             String baseOutputPath) {
+        writeThroughputCsvAtPath(metrics, baseOutputPath + "/throughput");
+    }
+
+    public static void writeThroughputCsvAtPath(
+            DataStream<ThroughputMetric> metrics,
+            String outputPath) {
         metrics
                 .map(new ThroughputMetricCsvFormatter())
                 .name("Throughput Performance CSV Formatter")
-                .sinkTo(csvSink(baseOutputPath + "/throughput"))
+                .sinkTo(csvSink(outputPath))
                 .name("Throughput Performance CSV Sink")
                 .setParallelism(METRIC_SINK_PARALLELISM);
     }

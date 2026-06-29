@@ -1,91 +1,259 @@
+#!/usr/bin/env python3
+"""
+Grafici di latenza per le strategie di watermarking.
+
+Input default:
+  - performance/latency_*.csv
+
+Output default:
+  - performance/plot/latency/average_latency_comparison.png
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
 from pathlib import Path
-import pandas as pd
-import matplotlib.pyplot as plt
 
 
-OUTPUT_DIR = Path("/home/giulia/Documenti/SABD/project2/SABD2/performance/plot/latency")
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-files = {
-    "Adaptive": "/home/giulia/Documenti/SABD/project2/SABD2/performance/latency_ADAPTIVE_p4.csv",
-    "WM15": "/home/giulia/Documenti/SABD/project2/SABD2/performance/latency_WM15_p4.csv",
-    "WM100": "/home/giulia/Documenti/SABD/project2/SABD2/performance/latency_WM100_p4.csv",
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_INPUT_DIR = PROJECT_ROOT / "performance"
+DEFAULT_OUTPUT_DIR = DEFAULT_INPUT_DIR / "plot" / "latency"
+REQUIRED_COLUMNS = {
+    "label",
+    "window_end_ms",
+    "window_events",
+    "avg_latency_ms",
 }
-
-colors = {
-    "Adaptive": "tab:green",
+STRATEGY_COL = "watermark_strategy"
+LABEL_COL = "query_label"
+COLORS = {
+    "ADAPTIVE": "tab:green",
     "WM15": "tab:blue",
     "WM100": "tab:orange",
 }
 
-# ===============================   
-# Average latency
-# ===============================
+pd = None
+plt = None
 
-plt.figure(figsize=(10,5))
 
-for name, file in files.items():
-    df = pd.read_csv(file)
+def load_plot_dependencies() -> None:
+    global pd, plt
+    if pd is not None and plt is not None:
+        return
+    try:
+        os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+        import matplotlib
 
-    # elimina la finestra di warm-up
-    df = df[df["window_events"] > 100]
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as pyplot
+        import pandas as pandas_module
+    except ModuleNotFoundError as exc:
+        missing = exc.name or "dipendenza Python"
+        raise SystemExit(f"Dipendenza mancante: installa {missing} per usare questo script.") from exc
 
-    # tempo relativo
-    t = (df["window_end_ms"] - df["window_end_ms"].iloc[0]) / 1000
+    pd = pandas_module
+    plt = pyplot
 
-    plt.plot(
-        t,
-        df["avg_latency_ms"],
-        label=name,
-        color=colors[name],
-        linewidth=2,
+
+def discover_files(input_dir: Path, pattern: str) -> list[Path]:
+    files = sorted(input_dir.glob(pattern))
+    if not files:
+        raise FileNotFoundError(f"Nessun CSV trovato con pattern {input_dir / pattern}")
+    return files
+
+
+def strategy_from_file(path: Path) -> str:
+    name = path.stem
+    prefix = "latency_"
+    if name.startswith(prefix):
+        remainder = name[len(prefix) :]
+        if "_p" in remainder:
+            return remainder.rsplit("_p", 1)[0]
+        return remainder
+    return name
+
+
+def normalize_label(raw_label: object, strategy: object) -> str:
+    label = str(raw_label)
+    suffix = f"-{strategy}"
+    if label.endswith(suffix):
+        return label[: -len(suffix)]
+    return label
+
+
+def filename_slug(value: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", value).strip("_").lower()
+    return slug or "latency"
+
+
+def read_latency_files(files: list[Path], min_window_events: int) -> "pd.DataFrame":
+    frames = []
+    for path in files:
+        df = pd.read_csv(path)
+        missing = REQUIRED_COLUMNS - set(df.columns)
+        if missing:
+            raise ValueError(f"{path.name}: colonne mancanti: {sorted(missing)}")
+
+        df = df.copy()
+        if STRATEGY_COL not in df.columns:
+            df[STRATEGY_COL] = strategy_from_file(path)
+
+        numeric_columns = {
+            "window_end_ms",
+            "window_events",
+            "avg_latency_ms",
+            "source_subtask_index",
+            "parallelism",
+        }
+        for col in numeric_columns & set(df.columns):
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        df = df.dropna(subset=["window_end_ms", "window_events", "avg_latency_ms"])
+        df = df[df["window_events"] > min_window_events]
+        if not df.empty:
+            df[LABEL_COL] = [
+                normalize_label(label, strategy)
+                for label, strategy in zip(df["label"], df[STRATEGY_COL])
+            ]
+            frames.append(df)
+
+    if not frames:
+        raise ValueError("Nessun dato di latenza disponibile dopo il filtro richiesto.")
+    return pd.concat(frames, ignore_index=True)
+
+
+def aggregate_average_latency(
+    df: "pd.DataFrame",
+    time_bucket_seconds: int,
+    smooth_buckets: int,
+    group_columns: list[str] | None = None,
+) -> "pd.DataFrame":
+    if time_bucket_seconds <= 0:
+        raise ValueError("--time-bucket-seconds deve essere maggiore di 0.")
+
+    if group_columns is None:
+        group_columns = [STRATEGY_COL]
+
+    df = df.sort_values(group_columns + ["window_end_ms"]).copy()
+    df["time_s"] = df.groupby(group_columns)["window_end_ms"].transform(
+        lambda s: (s - s.min()) / 1000.0
+    )
+    df["time_bin_s"] = (df["time_s"] // time_bucket_seconds) * time_bucket_seconds
+    df["weighted_latency_ms"] = df["avg_latency_ms"] * df["window_events"]
+
+    grouped = (
+        df.groupby(group_columns + ["time_bin_s"], as_index=False)
+        .agg(
+            window_events=("window_events", "sum"),
+            weighted_latency_ms=("weighted_latency_ms", "sum"),
+        )
+        .sort_values(group_columns + ["time_bin_s"])
+    )
+    grouped["avg_latency_ms"] = grouped["weighted_latency_ms"] / grouped["window_events"]
+    grouped["time_s"] = grouped["time_bin_s"] + time_bucket_seconds / 2
+
+    if smooth_buckets > 1:
+        grouped["plot_latency_ms"] = grouped.groupby(group_columns)["avg_latency_ms"].transform(
+            lambda s: s.rolling(window=smooth_buckets, min_periods=1, center=True).mean()
+        )
+    else:
+        grouped["plot_latency_ms"] = grouped["avg_latency_ms"]
+
+    return grouped
+
+
+def plot_average_latency(df: "pd.DataFrame", output_path: Path, title: str = "Average Latency") -> None:
+    fig, ax = plt.subplots(figsize=(10, 5))
+    for strategy, group in df.groupby(STRATEGY_COL):
+        group = group.sort_values("time_s")
+        ax.plot(
+            group["time_s"],
+            group["plot_latency_ms"],
+            label=str(strategy),
+            color=COLORS.get(str(strategy)),
+            linewidth=3,
+            solid_joinstyle="round",
+            solid_capstyle="round",
+            antialiased=True,
+        )
+
+    ax.set_title(title)
+    ax.set_xlabel("Tempo relativo (s)")
+    ax.set_ylabel("Latenza media (ms)")
+    ax.grid(True, alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_latency_by_label(df: "pd.DataFrame", output_dir: Path) -> list[Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    written_paths = []
+
+    for label, group in df.groupby(LABEL_COL):
+        output_path = output_dir / f"average_latency_{filename_slug(str(label))}.png"
+        plot_average_latency(
+            group,
+            output_path,
+            title=f"Average Latency - {label}",
+        )
+        written_paths.append(output_path)
+
+    return written_paths
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Crea grafici di latenza dalle metriche performance esportate.")
+    parser.add_argument("--input-dir", default=DEFAULT_INPUT_DIR, type=Path, help="Cartella contenente latency_*.csv.")
+    parser.add_argument("--pattern", default="latency_*.csv", help="Pattern dei CSV di latenza.")
+    parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, type=Path, help="Cartella dei PNG prodotti.")
+    parser.add_argument(
+        "--min-window-events",
+        default=0,
+        type=int,
+        help="Esclude finestre con window_events <= valore indicato. Default: 0, usa tutti i punti validi.",
+    )
+    parser.add_argument(
+        "--time-bucket-seconds",
+        default=10,
+        type=int,
+        help="Ampiezza dei bucket temporali usati per la media pesata. Default: 10.",
+    )
+    parser.add_argument(
+        "--smooth-buckets",
+        default=3,
+        type=int,
+        help="Numero di bucket su cui applicare la media mobile al plot. Usa 1 per disattivarla.",
+    )
+    args = parser.parse_args()
+
+    load_plot_dependencies()
+    files = discover_files(args.input_dir, args.pattern)
+    raw_df = read_latency_files(files, args.min_window_events)
+    overview_df = aggregate_average_latency(
+        raw_df,
+        args.time_bucket_seconds,
+        args.smooth_buckets,
+    )
+    by_label_df = aggregate_average_latency(
+        raw_df,
+        args.time_bucket_seconds,
+        args.smooth_buckets,
+        group_columns=[LABEL_COL, STRATEGY_COL],
     )
 
-plt.title("Average Latency")
-plt.xlabel("Tempo (s)")
-plt.ylabel("Average latency (ms)")
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    overview_path = args.output_dir / "average_latency_comparison.png"
+    label_paths = plot_latency_by_label(by_label_df, args.output_dir / "by_label")
 
-plt.savefig(
-    OUTPUT_DIR / "average_latency_comparison.png",
-    dpi=300,
-    bbox_inches="tight")
+    plot_average_latency(overview_df, overview_path)
 
-# ===============================
-# Maximum latency
-# ===============================
+    print(f"Grafico globale salvato in: {overview_path}")
+    print(f"Grafici per label salvati in: {args.output_dir / 'by_label'} ({len(label_paths)} file)")
 
-plt.figure(figsize=(10,5))
 
-for name, file in files.items():
-    df = pd.read_csv(file)
-
-    df = df[df["window_events"] > 100]
-
-    t = (df["window_end_ms"] - df["window_end_ms"].iloc[0]) / 1000
-
-    plt.plot(
-        t,
-        df["max_latency_ms"],
-        label=name,
-        color=colors[name],
-        linewidth=2,
-    )
-
-plt.title("Maximum Latency")
-plt.xlabel("Tempo (s)")
-plt.ylabel("Maximum latency (ms)")
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
-
-# Grafico Maximum Latency
-plt.savefig(
-    OUTPUT_DIR / "maximum_latency_comparison.png",
-    dpi=300,
-    bbox_inches="tight"
-)
-
-plt.show()
+if __name__ == "__main__":
+    main()

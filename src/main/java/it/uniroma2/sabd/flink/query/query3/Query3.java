@@ -5,6 +5,7 @@ import static it.uniroma2.sabd.flink.query.TargetAirlines.TARGET_AIRLINES;
 import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.controller.LatencyMonitor;
 import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
+import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
 import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.flink.model.Query3GlobalStats;
@@ -67,30 +68,58 @@ public final class Query3 {
                 .keyBy(Query3::airlineDepartureHourKey)
                 .process(new GlobalTDigestProcessFunction());
 
-        SingleOutputStreamOperator<Query3Stats> monitoredDaily = daily
-                .process(new LatencyMonitor<>("q3-1day-result-" + watermarkName,
+        String dailyLabel = "q3-1day-result-" + watermarkName;
+        String weeklyLabel = "q3-7day-result-" + watermarkName;
+        String globalLabel = "q3-global-result-" + watermarkName;
+
+        SingleOutputStreamOperator<Query3Stats> latencyMonitoredDaily = daily
+                .process(new LatencyMonitor<>(dailyLabel,
                         config.getMetricsLatencyIntervalMs()))
                 .name("Query3 1-Day Result Latency Monitor");
 
-        SingleOutputStreamOperator<Query3Stats> monitoredWeekly = weekly
-                .process(new LatencyMonitor<>("q3-7day-result-" + watermarkName,
+        SingleOutputStreamOperator<Query3Stats> monitoredDaily = latencyMonitoredDaily
+                .process(new ThroughputMonitor<>(dailyLabel,
+                        config.getMetricsThroughputIntervalMs()))
+                .name("Query3 1-Day Result Throughput Monitor");
+
+        SingleOutputStreamOperator<Query3Stats> latencyMonitoredWeekly = weekly
+                .process(new LatencyMonitor<>(weeklyLabel,
                         config.getMetricsLatencyIntervalMs()))
                 .name("Query3 7-Day Result Latency Monitor");
 
-        SingleOutputStreamOperator<Query3GlobalStats> monitoredGlobal = global
-                .process(new LatencyMonitor<>("q3-global-result-" + watermarkName,
+        SingleOutputStreamOperator<Query3Stats> monitoredWeekly = latencyMonitoredWeekly
+                .process(new ThroughputMonitor<>(weeklyLabel,
+                        config.getMetricsThroughputIntervalMs()))
+                .name("Query3 7-Day Result Throughput Monitor");
+
+        SingleOutputStreamOperator<Query3GlobalStats> latencyMonitoredGlobal = global
+                .process(new LatencyMonitor<>(globalLabel,
                         config.getMetricsLatencyIntervalMs()))
                 .name("Query3 Global Result Latency Monitor");
 
+        SingleOutputStreamOperator<Query3GlobalStats> monitoredGlobal = latencyMonitoredGlobal
+                .process(new ThroughputMonitor<>(globalLabel,
+                        config.getMetricsThroughputIntervalMs()))
+                .name("Query3 Global Result Throughput Monitor");
+
         PerformanceSinks.writeLatencyCsvAtPath(
-                monitoredDaily.getSideOutput(PerformanceMetricTags.LATENCY),
+                latencyMonitoredDaily.getSideOutput(PerformanceMetricTags.LATENCY),
                 config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q3_1day");
         PerformanceSinks.writeLatencyCsvAtPath(
-                monitoredWeekly.getSideOutput(PerformanceMetricTags.LATENCY),
+                latencyMonitoredWeekly.getSideOutput(PerformanceMetricTags.LATENCY),
                 config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q3_7day");
         PerformanceSinks.writeLatencyCsvAtPath(
-                monitoredGlobal.getSideOutput(PerformanceMetricTags.LATENCY),
+                latencyMonitoredGlobal.getSideOutput(PerformanceMetricTags.LATENCY),
                 config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q3_global");
+        PerformanceSinks.writeThroughputCsvAtPath(
+                monitoredDaily.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q3_1day");
+        PerformanceSinks.writeThroughputCsvAtPath(
+                monitoredWeekly.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q3_7day");
+        PerformanceSinks.writeThroughputCsvAtPath(
+                monitoredGlobal.getSideOutput(PerformanceMetricTags.THROUGHPUT),
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q3_global");
 
         monitoredDaily
                 .map(Query3Stats::toCSV)
