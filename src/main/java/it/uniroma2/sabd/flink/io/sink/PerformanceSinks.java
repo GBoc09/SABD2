@@ -1,11 +1,14 @@
 package it.uniroma2.sabd.flink.io.sink;
 
+import it.uniroma2.sabd.flink.controller.GlobalThroughputAggregator;
 import it.uniroma2.sabd.flink.model.LatencyMetric;
 import it.uniroma2.sabd.flink.model.ThroughputMetric;
+import java.time.Duration;
 import org.apache.flink.api.common.serialization.SimpleStringEncoder;
 import org.apache.flink.connector.file.sink.FileSink;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
 
 public final class PerformanceSinks {
 
@@ -46,6 +49,21 @@ public final class PerformanceSinks {
                 .sinkTo(csvSink(outputPath))
                 .name("Throughput Performance CSV Sink")
                 .setParallelism(METRIC_SINK_PARALLELISM);
+    }
+
+    public static void writeGlobalThroughputCsvAtPath(
+            DataStream<ThroughputMetric> metrics,
+            String outputPath,
+            long aggregationWindowMs) {
+
+        DataStream<ThroughputMetric> globalMetrics = metrics
+                .keyBy(ThroughputMetric::getLabel)
+                .window(TumblingProcessingTimeWindows.of(
+                        Duration.ofMillis(Math.max(1L, aggregationWindowMs))))
+                .process(new GlobalThroughputAggregator())
+                .name("Global Throughput Aggregator");
+
+        writeThroughputCsvAtPath(globalMetrics, outputPath);
     }
 
     private static FileSink<String> csvSink(String outputPath) {

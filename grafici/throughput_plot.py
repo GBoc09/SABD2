@@ -6,7 +6,6 @@ Input default:
   - performance/throughput_*.csv
 
 Output default:
-  - performance/plot/throughput/instant_throughput_comparison.png
   - performance/plot/throughput/average_throughput_comparison.png
 """
 
@@ -23,10 +22,14 @@ DEFAULT_INPUT_DIR = PROJECT_ROOT / "performance"
 DEFAULT_OUTPUT_DIR = DEFAULT_INPUT_DIR / "plot" / "throughput"
 REQUIRED_COLUMNS = {
     "label",
-    "window_start_ms",
     "window_end_ms",
     "window_events",
+    "source_subtask_index",
+    "average_throughput_events_per_second",
 }
+METRIC_COLUMNS = (
+    "average_throughput_events_per_second",
+)
 STRATEGY_COL = "watermark_strategy"
 LABEL_COL = "query_label"
 COLORS = {
@@ -78,6 +81,9 @@ def strategy_from_file(path: Path) -> str:
 
 def normalize_label(raw_label: object, strategy: object) -> str:
     label = str(raw_label)
+    global_suffix = "-global"
+    if label.endswith(global_suffix):
+        label = label[: -len(global_suffix)]
     suffix = f"-{strategy}"
     if label.endswith(suffix):
         return label[: -len(suffix)]
@@ -102,13 +108,26 @@ def read_throughput_files(files: list[Path], min_window_events: int) -> "pd.Data
             df[STRATEGY_COL] = strategy_from_file(path)
 
         numeric_columns = (REQUIRED_COLUMNS - {"label"}) | {
+            "window_start_ms",
+            "window_events",
             "source_subtask_index",
             "parallelism",
         }
         for col in numeric_columns & set(df.columns):
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        df = df.dropna(subset=["window_start_ms", "window_end_ms", "window_events"])
+        df = df.dropna(subset=[
+            "window_end_ms",
+            "source_subtask_index",
+            *METRIC_COLUMNS,
+        ])
+        df = df[df["source_subtask_index"] == -1]
+        if df.empty:
+            raise ValueError(
+                f"{path.name}: nessuna riga globale trovata. "
+                "Esegui il job aggiornato con GlobalThroughputAggregator."
+            )
+
         df = df[df["window_events"] > min_window_events]
         if not df.empty:
             df[LABEL_COL] = [
@@ -122,90 +141,55 @@ def read_throughput_files(files: list[Path], min_window_events: int) -> "pd.Data
     return pd.concat(frames, ignore_index=True)
 
 
-def aggregate_by_strategy_time(
+def prepare_plot_points(
     df: "pd.DataFrame",
-    time_bucket_seconds: int,
     smooth_buckets: int,
     group_columns: list[str] | None = None,
 ) -> "pd.DataFrame":
-    if time_bucket_seconds <= 0:
-        raise ValueError("--time-bucket-seconds deve essere maggiore di 0.")
-
     if group_columns is None:
-        group_columns = [STRATEGY_COL]
+        group_columns = [LABEL_COL, STRATEGY_COL]
 
-    if "source_subtask_index" in df.columns:
-        index_cols = group_columns + ["source_subtask_index"]
-    else:
-        index_cols = group_columns
-
-    df = df.sort_values(index_cols + ["window_end_ms"]).copy()
+    df = df.sort_values(group_columns + ["window_end_ms"]).copy()
     df["time_s"] = df.groupby(group_columns)["window_end_ms"].transform(
         lambda s: (s - s.min()) / 1000.0
     )
-    df["time_bin_s"] = (df["time_s"] // time_bucket_seconds) * time_bucket_seconds
-
-    grouped = (
-        df.groupby(group_columns + ["time_bin_s"], as_index=False)
-        .agg(
-            window_events=("window_events", "sum"),
-            bucket_start_ms=("window_start_ms", "min"),
-            bucket_end_ms=("window_end_ms", "max"),
-        )
-        .sort_values(group_columns + ["time_bin_s"])
-    )
-    grouped["time_s"] = grouped["time_bin_s"] + time_bucket_seconds / 2
-    grouped["duration_s"] = (grouped["bucket_end_ms"] - grouped["bucket_start_ms"]) / 1000.0
-    grouped = grouped[grouped["duration_s"] > 0].copy()
-    if grouped.empty:
-        raise ValueError("Nessun bucket di throughput con durata positiva.")
-
-    # Calcola i rate dai conteggi grezzi. Sommare colonne gia espresse in eventi/s
-    # gonfia il throughput quando nello stesso bucket cadono piu report/subtask.
-    grouped["instant_throughput_events_per_second"] = (
-        grouped["window_events"] / grouped["duration_s"]
-    )
-    grouped["first_bucket_start_ms"] = grouped.groupby(group_columns)["bucket_start_ms"].transform(
-        "min"
-    )
-    grouped["cumulative_events"] = grouped.groupby(group_columns)["window_events"].cumsum()
-    grouped["elapsed_s"] = (
-        grouped["bucket_end_ms"] - grouped["first_bucket_start_ms"]
-    ) / 1000.0
-    grouped = grouped[grouped["elapsed_s"] > 0].copy()
-    grouped["average_throughput_events_per_second"] = (
-        grouped["cumulative_events"] / grouped["elapsed_s"]
-    )
 
     if smooth_buckets > 1:
-        for metric in (
-            "instant_throughput_events_per_second",
-            "average_throughput_events_per_second",
-        ):
-            grouped[f"plot_{metric}"] = grouped.groupby(group_columns)[metric].transform(
+        for metric in METRIC_COLUMNS:
+            df[f"plot_{metric}"] = df.groupby(group_columns)[metric].transform(
                 lambda s: s.rolling(window=smooth_buckets, min_periods=1, center=True).mean()
             )
     else:
-        grouped["plot_instant_throughput_events_per_second"] = grouped[
-            "instant_throughput_events_per_second"
-        ]
-        grouped["plot_average_throughput_events_per_second"] = grouped[
-            "average_throughput_events_per_second"
-        ]
+        for metric in METRIC_COLUMNS:
+            df[f"plot_{metric}"] = df[metric]
 
-    return grouped
+    return df
 
 
-def plot_metric(df: "pd.DataFrame", metric: str, title: str, ylabel: str, output_path: Path) -> None:
+def plot_metric(
+    df: "pd.DataFrame",
+    metric: str,
+    title: str,
+    ylabel: str,
+    output_path: Path,
+    series_columns: list[str] | None = None,
+) -> None:
+    if series_columns is None:
+        series_columns = [STRATEGY_COL]
+
     fig, ax = plt.subplots(figsize=(10, 5))
-    for strategy, group in df.groupby(STRATEGY_COL):
+    for series_key, group in df.groupby(series_columns):
         group = group.sort_values("time_s")
+        series_values = series_key if isinstance(series_key, tuple) else (series_key,)
+        label = " / ".join(str(value) for value in series_values)
+        strategy = str(group[STRATEGY_COL].iloc[0]) if STRATEGY_COL in group else label
         ax.plot(
             group["time_s"],
             group[f"plot_{metric}"],
-            label=str(strategy),
-            color=COLORS.get(str(strategy)),
-            linewidth=2,
+            label=label,
+            color=COLORS.get(strategy),
+            linewidth=1.6,
+            alpha=0.8,
         )
 
     ax.set_title(title)
@@ -237,6 +221,7 @@ def plot_metric_by_label(
             f"{title_prefix} - {label}",
             ylabel,
             output_path,
+            series_columns=[STRATEGY_COL],
         )
         written_paths.append(output_path)
 
@@ -255,12 +240,6 @@ def main() -> None:
         help="Esclude finestre con window_events <= valore indicato. Default: 0, usa tutti i punti validi.",
     )
     parser.add_argument(
-        "--time-bucket-seconds",
-        default=10,
-        type=int,
-        help="Ampiezza dei bucket temporali usati per aggregare i punti. Default: 10.",
-    )
-    parser.add_argument(
         "--smooth-buckets",
         default=3,
         type=int,
@@ -271,43 +250,23 @@ def main() -> None:
     load_plot_dependencies()
     files = discover_files(args.input_dir, args.pattern)
     raw_df = read_throughput_files(files, args.min_window_events)
-    overview_df = aggregate_by_strategy_time(
+    plot_df = prepare_plot_points(
         raw_df,
-        args.time_bucket_seconds,
-        args.smooth_buckets,
-    )
-    by_label_df = aggregate_by_strategy_time(
-        raw_df,
-        args.time_bucket_seconds,
         args.smooth_buckets,
         group_columns=[LABEL_COL, STRATEGY_COL],
     )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     plot_metric(
-        overview_df,
-        "instant_throughput_events_per_second",
-        "Instant Throughput",
-        "Eventi / secondo",
-        args.output_dir / "instant_throughput_comparison.png",
-    )
-    plot_metric(
-        overview_df,
+        plot_df,
         "average_throughput_events_per_second",
         "Average Throughput",
         "Eventi / secondo",
         args.output_dir / "average_throughput_comparison.png",
-    )
-    instant_label_paths = plot_metric_by_label(
-        by_label_df,
-        "instant_throughput_events_per_second",
-        "Instant Throughput",
-        "Eventi / secondo",
-        args.output_dir / "by_label" / "instant",
-        "instant_throughput",
+        series_columns=[LABEL_COL, STRATEGY_COL],
     )
     average_label_paths = plot_metric_by_label(
-        by_label_df,
+        plot_df,
         "average_throughput_events_per_second",
         "Average Throughput",
         "Eventi / secondo",
@@ -318,7 +277,7 @@ def main() -> None:
     print(f"Grafici globali salvati in: {args.output_dir}")
     print(
         "Grafici per label salvati in: "
-        f"{args.output_dir / 'by_label'} ({len(instant_label_paths) + len(average_label_paths)} file)"
+        f"{args.output_dir / 'by_label'} ({len(average_label_paths)} file)"
     )
 
 

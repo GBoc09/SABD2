@@ -138,15 +138,18 @@ public final class Query2 {
         PerformanceSinks.writeLatencyCsvAtPath(
                 latencyMonitoredRankingGlobal.getSideOutput(PerformanceMetricTags.LATENCY),
                 config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q2_global");
-        PerformanceSinks.writeThroughputCsvAtPath(
+        PerformanceSinks.writeGlobalThroughputCsvAtPath(
                 monitoredRanking1h.getSideOutput(PerformanceMetricTags.THROUGHPUT),
-                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q2_1h");
-        PerformanceSinks.writeThroughputCsvAtPath(
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q2_1h",
+                config.getMetricsThroughputIntervalMs());
+        PerformanceSinks.writeGlobalThroughputCsvAtPath(
                 monitoredRanking6h.getSideOutput(PerformanceMetricTags.THROUGHPUT),
-                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q2_6h");
-        PerformanceSinks.writeThroughputCsvAtPath(
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q2_6h",
+                config.getMetricsThroughputIntervalMs());
+        PerformanceSinks.writeGlobalThroughputCsvAtPath(
                 monitoredRankingGlobal.getSideOutput(PerformanceMetricTags.THROUGHPUT),
-                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q2_global");
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q2_global",
+                config.getMetricsThroughputIntervalMs());
 
         // --- sink CSV ---
         monitoredRanking1h

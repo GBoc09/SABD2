@@ -57,9 +57,10 @@ public final class Query1 {
         PerformanceSinks.writeLatencyCsvAtPath(
                 latencyMonitoredStats.getSideOutput(PerformanceMetricTags.LATENCY),
                 config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q1_1h");
-        PerformanceSinks.writeThroughputCsvAtPath(
+        PerformanceSinks.writeGlobalThroughputCsvAtPath(
                 monitoredStats.getSideOutput(PerformanceMetricTags.THROUGHPUT),
-                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q1_1h");
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q1_1h",
+                config.getMetricsThroughputIntervalMs());
 
         monitoredStats
                 .map(Query1Stats::toCSV)

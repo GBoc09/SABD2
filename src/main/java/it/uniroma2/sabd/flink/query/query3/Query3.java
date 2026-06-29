@@ -111,15 +111,18 @@ public final class Query3 {
         PerformanceSinks.writeLatencyCsvAtPath(
                 latencyMonitoredGlobal.getSideOutput(PerformanceMetricTags.LATENCY),
                 config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q3_global");
-        PerformanceSinks.writeThroughputCsvAtPath(
+        PerformanceSinks.writeGlobalThroughputCsvAtPath(
                 monitoredDaily.getSideOutput(PerformanceMetricTags.THROUGHPUT),
-                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q3_1day");
-        PerformanceSinks.writeThroughputCsvAtPath(
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q3_1day",
+                config.getMetricsThroughputIntervalMs());
+        PerformanceSinks.writeGlobalThroughputCsvAtPath(
                 monitoredWeekly.getSideOutput(PerformanceMetricTags.THROUGHPUT),
-                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q3_7day");
-        PerformanceSinks.writeThroughputCsvAtPath(
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q3_7day",
+                config.getMetricsThroughputIntervalMs());
+        PerformanceSinks.writeGlobalThroughputCsvAtPath(
                 monitoredGlobal.getSideOutput(PerformanceMetricTags.THROUGHPUT),
-                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q3_global");
+                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q3_global",
+                config.getMetricsThroughputIntervalMs());
 
         monitoredDaily
                 .map(Query3Stats::toCSV)
