@@ -2,10 +2,8 @@ package it.uniroma2.sabd.flink;
 
 import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.controller.FlightQueryController;
-import it.uniroma2.sabd.flink.controller.WatermarkLateEventDetector;
 import it.uniroma2.sabd.flink.io.kafka.FlightEventDeserializer;
 import it.uniroma2.sabd.flink.io.kafka.FlightKafkaSourceFactory;
-import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkType;
 import it.uniroma2.sabd.flink.engineering.watermarks.WatermarkRegistry;
@@ -17,7 +15,6 @@ import it.uniroma2.sabd.flink.controller.OutOfOrderStatisticProcessor;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 
@@ -54,17 +51,8 @@ public class MainJob {
                                 .create())
                         .name("Assign Event Time " + watermarkName);
 
-        SingleOutputStreamOperator<FlightEvent> watermarkCheckedStream = wmStream
-                .process(new WatermarkLateEventDetector())
-                .name("Watermark Late Event Detector " + watermarkName);
-
-        watermarkCheckedStream
-                .getSideOutput(WatermarkLateEventDetector.LATE_AFTER_WATERMARK_TAG)
-                .sinkTo(QuerySinks.watermarkLateEventsCsv(watermarkName))
-                .name("Watermark Late Events CSV Sink " + watermarkName);
-
         FlightQueryController controller = new FlightQueryController(config, watermarkName);
-        controller.buildQueries(watermarkCheckedStream);
+        controller.buildQueries(wmStream);
         System.out.println("Avvio query con watermark: " + watermarkName);
     }
 
@@ -78,22 +66,18 @@ public class MainJob {
                 .map(new FlightEventDeserializer())
                 .name("Deserialize Flight Events");
 
-        DataStream<OutOfOrderEvent> outOfOrderStream =
-        deserializedStream
-                .keyBy(event -> "GLOBAL")
-                .process(new OutOfOrderDetector());
+        DataStream<OutOfOrderEvent> outOfOrderStream = deserializedStream
+                .process(new OutOfOrderDetector())
+                .name("Out Of Order Detector Per Source Subtask");
 
         outOfOrderStream
-                .keyBy(event -> "GLOBAL")
+                .keyBy(OutOfOrderEvent::getSubtaskIndex)
                 .process(
                 new OutOfOrderStatisticProcessor(
                         config.getOooReportEveryEvents()))
                 .name("Out Of Order Statistics");
 
-
         return deserializedStream;
-                /*.assignTimestampsAndWatermarks(createEventTimeAssigner(config))
-                .name("Assign Event Time");*/
     }
 
     private static DataStream<String> createKafkaStream(

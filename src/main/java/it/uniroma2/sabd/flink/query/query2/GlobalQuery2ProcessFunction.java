@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 
 /**
  * Finestra "dall'inizio del dataset" per Q2.
@@ -20,6 +21,9 @@ import org.apache.flink.util.Collector;
  */
 final class GlobalQuery2ProcessFunction
         extends GlobalWindowProcessFunction<Integer, Query2Accumulator.State, Query2Stats> {
+
+    static final OutputTag<FlightEvent> DISCARDED_GLOBAL_TAG =
+            new OutputTag<FlightEvent>("q2-discarded-global") { };
 
     private static final int MIN_FLIGHTS = 30;
 
@@ -57,6 +61,11 @@ final class GlobalQuery2ProcessFunction
     @Override
     protected void mergeInto(Query2Accumulator.State target, Query2Accumulator.State source) {
         accumulatorLogic.merge(target, source);
+    }
+
+    @Override
+    protected OutputTag<FlightEvent> discardedEventsTag() {
+        return DISCARDED_GLOBAL_TAG;
     }
 
     @Override

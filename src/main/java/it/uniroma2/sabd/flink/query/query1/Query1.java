@@ -6,6 +6,7 @@ import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.controller.LatencyMonitor;
 import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
 import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
+import it.uniroma2.sabd.flink.io.sink.DiscardedTupleSinks;
 import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.model.FlightEvent;
@@ -14,8 +15,12 @@ import java.time.Duration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import org.apache.flink.util.OutputTag;
 
 public final class Query1 {
+    private static final OutputTag<FlightEvent> LATE_1H_TAG =
+            new OutputTag<FlightEvent>("q1-discarded-1h") { };
+
     /*
      * voli relativi alle compagnie AA (American Airlines), DL (Delta),
      * UA (United) e WN (Southwest), aggregare gli eventi usando finestre tumbling di durata pari a 1 ora,
@@ -33,14 +38,22 @@ public final class Query1 {
     }
 
     public static void execute(DataStream<FlightEvent> flightStream, AppConfig config, String watermarkName) {
-        DataStream<Query1Stats> stats = flightStream
+        SingleOutputStreamOperator<Query1Stats> stats = flightStream
                 .filter(event -> TARGET_AIRLINES.contains(event.getCarrier()))
                 .keyBy(FlightEvent::getCarrier)
                 .window(TumblingEventTimeWindows.of(Duration.ofHours(1)))
+                .sideOutputLateData(LATE_1H_TAG)
                 .aggregate(
                         new Query1Accumulator(),
                         new FinalizeQuery1Stats()
                 );
+
+        DiscardedTupleSinks.writeFixedWindow(
+                stats.getSideOutput(LATE_1H_TAG),
+                watermarkName,
+                "q1",
+                "1h",
+                Duration.ofHours(1));
 
         String resultLabel = "q1-1h-result-" + watermarkName;
 

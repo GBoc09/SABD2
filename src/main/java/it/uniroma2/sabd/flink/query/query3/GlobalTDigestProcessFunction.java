@@ -8,6 +8,7 @@ import it.uniroma2.sabd.flink.utils.EventTimeUtils;
 import it.uniroma2.sabd.model.FlightEvent;
 import java.time.Instant;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 
 /**
  * Finestra "dall'inizio del dataset" per Q3.
@@ -18,6 +19,9 @@ import org.apache.flink.util.Collector;
  */
 final class GlobalTDigestProcessFunction
         extends GlobalWindowProcessFunction<Query3Key, Query3Accumulator.State, Query3GlobalStats> {
+
+    static final OutputTag<FlightEvent> DISCARDED_GLOBAL_TAG =
+            new OutputTag<FlightEvent>("q3-discarded-global") { };
 
     private static final double TDIGEST_COMPRESSION = 100.0;
 
@@ -55,6 +59,11 @@ final class GlobalTDigestProcessFunction
     @Override
     protected void mergeInto(Query3Accumulator.State target, Query3Accumulator.State source) {
         accumulatorLogic.merge(target, source);
+    }
+
+    @Override
+    protected OutputTag<FlightEvent> discardedEventsTag() {
+        return DISCARDED_GLOBAL_TAG;
     }
 
     @Override

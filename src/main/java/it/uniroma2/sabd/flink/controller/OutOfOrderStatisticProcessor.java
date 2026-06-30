@@ -13,7 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class OutOfOrderStatisticProcessor
-        extends KeyedProcessFunction<String,
+        extends KeyedProcessFunction<Integer,
                                      OutOfOrderEvent,
                                      OutOfOrderEvent> {
 
@@ -27,6 +27,7 @@ public class OutOfOrderStatisticProcessor
     private long totalLatenessMs;
     private long maxLatenessMs;
 
+    private int sourceSubtaskIndex;
     private String worstCarrier;
     private String worstFlightTime;
 
@@ -52,6 +53,7 @@ public class OutOfOrderStatisticProcessor
             Collector<OutOfOrderEvent> out) {
 
         totalOutOfOrder++;
+        sourceSubtaskIndex = event.getSubtaskIndex();
 
         totalLatenessMs += event.getLatenessMs();
 
@@ -84,34 +86,16 @@ public class OutOfOrderStatisticProcessor
                         : ((double) totalLatenessMs)
                         / totalOutOfOrder;
 
-        /*LOG.info(
-                "\n==============================\n" +
-                " OUT OF ORDER REPORT\n" +
-                "==============================\n" +
-                "Out-of-order events : {}\n" +
-                "Average lateness ms : {}\n" +
-                "Maximum lateness ms : {}\n" +
-                "Worst carrier       : {}\n" +
-                "Worst flight time   : {}\n" +
-                "Top carriers        : {}\n" +
-                "==============================",
+        LOG.info(
+                "OUT_OF_ORDER_REPORT sourceSubtask={} total={} avgLatenessMs={} "
+                + "maxLatenessMs={} worstCarrier={} worstFlightTime={} topCarriers={}",
+                sourceSubtaskIndex,
                 totalOutOfOrder,
                 String.format("%.2f", avgLatenessMs),
                 maxLatenessMs,
                 worstCarrier,
                 worstFlightTime,
-                topCarriers()
-        );*/ 
-        LOG.info(
-        "OUT_OF_ORDER_REPORT total={} avgLatenessMs={} maxLatenessMs={} "
-        + "worstCarrier={} worstFlightTime={} topCarriers={}",
-        totalOutOfOrder,
-        String.format("%.2f", avgLatenessMs),
-        maxLatenessMs,
-        worstCarrier,
-        worstFlightTime,
-        topCarriers()
-    );
+                topCarriers());
     }
 
     private String topCarriers() {

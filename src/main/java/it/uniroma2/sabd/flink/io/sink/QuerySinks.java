@@ -12,10 +12,6 @@ public final class QuerySinks {
         return csvSink("output/" + watermark + "/query1");
     }
 
-    public static FileSink<String> watermarkLateEventsCsv(String watermark) {
-        return csvSink("output/" + watermark + "/watermark_late_events");
-    }
-
     public static FileSink<String> query2SixHoursCsv(String watermark) {
         return csvSink("output/" + watermark + "/query2/6h");
     }
@@ -35,6 +31,14 @@ public final class QuerySinks {
 
     public static FileSink<String> queryGlobalCsv(String watermark) {
         return csvSink("output/" + watermark + "/query3/global");
+    }
+
+    public static FileSink<String> discardedTuplesCsv(
+            String watermark,
+            String query,
+            String window) {
+
+        return csvSink("output/" + watermark + "/discarded_tuples/" + query + "/" + window);
     }
 
     private static FileSink<String> csvSink(String outputPath) {

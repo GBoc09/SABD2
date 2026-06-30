@@ -10,6 +10,7 @@ import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 
 public abstract class GlobalWindowProcessFunction<K, ACC, OUT>
         extends KeyedProcessFunction<K, FlightEvent, OUT> {
@@ -31,6 +32,10 @@ public abstract class GlobalWindowProcessFunction<K, ACC, OUT>
         long currentWatermark = ctx.timerService().currentWatermark();
 
         if (isAfterClosedMonthlyBucket(eventTimestamp, currentWatermark)) {
+            OutputTag<FlightEvent> tag = discardedEventsTag();
+            if (tag != null) {
+                ctx.output(tag, event);
+            }
             return;
         }
 
@@ -81,4 +86,8 @@ public abstract class GlobalWindowProcessFunction<K, ACC, OUT>
     protected abstract void updateAccumulator(ACC state, FlightEvent event);
     protected abstract void mergeInto(ACC target, ACC source);
     protected abstract void emitIfValid(ACC cumulative, long timestamp, K key, Collector<OUT> out);
+
+    protected OutputTag<FlightEvent> discardedEventsTag() {
+        return null;
+    }
 }

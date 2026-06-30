@@ -6,6 +6,7 @@ import it.uniroma2.sabd.config.AppConfig;
 import it.uniroma2.sabd.flink.controller.LatencyMonitor;
 import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
 import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
+import it.uniroma2.sabd.flink.io.sink.DiscardedTupleSinks;
 import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
 import it.uniroma2.sabd.flink.model.Query3GlobalStats;
@@ -17,8 +18,14 @@ import java.time.Duration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import org.apache.flink.util.OutputTag;
 
 public final class Query3 {
+    private static final OutputTag<FlightEvent> LATE_1DAY_TAG =
+            new OutputTag<FlightEvent>("q3-discarded-1day") { };
+
+    private static final OutputTag<FlightEvent> LATE_7DAY_TAG =
+            new OutputTag<FlightEvent>("q3-discarded-7day") { };
 
     private Query3() {
     }
@@ -51,22 +58,44 @@ public final class Query3 {
         SingleOutputStreamOperator<Query3Stats> daily = validFlights
                 .keyBy(Query3::airlineDepartureHourKey)
                 .window(TumblingEventTimeWindows.of(Duration.ofDays(1)))
+                .sideOutputLateData(LATE_1DAY_TAG)
                 .aggregate(
                         new Query3Accumulator(),
                         new FinalizeQuery3Stats()
                 );  
 
+        DiscardedTupleSinks.writeFixedWindow(
+                daily.getSideOutput(LATE_1DAY_TAG),
+                watermarkName,
+                "q3",
+                "1day",
+                Duration.ofDays(1));
+
         SingleOutputStreamOperator<Query3Stats> weekly = validFlights
                 .keyBy(Query3::airlineDepartureHourKey)
                 .window(TumblingEventTimeWindows.of(Duration.ofDays(7)))
+                .sideOutputLateData(LATE_7DAY_TAG)
                 .aggregate(
                         new Query3Accumulator(),
                         new FinalizeQuery3Stats()
                 ); 
 
+        DiscardedTupleSinks.writeFixedWindow(
+                weekly.getSideOutput(LATE_7DAY_TAG),
+                watermarkName,
+                "q3",
+                "7day",
+                Duration.ofDays(7));
+
         SingleOutputStreamOperator<Query3GlobalStats> global = validFlights
                 .keyBy(Query3::airlineDepartureHourKey)
                 .process(new GlobalTDigestProcessFunction());
+
+        DiscardedTupleSinks.writeMonthlyWindow(
+                global.getSideOutput(GlobalTDigestProcessFunction.DISCARDED_GLOBAL_TAG),
+                watermarkName,
+                "q3",
+                "global");
 
         String dailyLabel = "q3-1day-result-" + watermarkName;
         String weeklyLabel = "q3-7day-result-" + watermarkName;
