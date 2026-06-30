@@ -1,24 +1,31 @@
 package it.uniroma2.sabd.flink.model;
 
-import it.uniroma2.sabd.model.HasProcessingStartTime;
 import java.time.Instant;
 
-public class Query1Stats implements HasProcessingStartTime {
-    Instant windowStart;
-    Instant windowEnd;
-    String airline;
-    long num_flights;
-    long completed_flights;
-    long cancelled_flights;
-    long diverted_flights;
-    double avg_dep_delay;
-    double cancellation_rate;
-    double late_departure_rate;
-    long processingStartTimeMs;
+public class Query1Stats extends AbstractQueryStats {
 
-    public Query1Stats(Instant windowStart, Instant windowEnd, String airline, long num_flights, long completed_flights, long cancelled_flights, long diverted_flights, double avg_dep_delay, double cancellation_rate, double late_departure_rate, long processingStartTimeMs) {
-        this.windowStart = windowStart;
-        this.windowEnd = windowEnd;
+    private final String airline;
+    private final long num_flights;
+    private final long completed_flights;
+    private final long cancelled_flights;
+    private final long diverted_flights;
+    private final double avg_dep_delay;
+    private final double cancellation_rate;
+    private final double late_departure_rate;
+
+    public Query1Stats(
+            Instant windowStart,
+            Instant windowEnd,
+            String airline,
+            long num_flights,
+            long completed_flights,
+            long cancelled_flights,
+            long diverted_flights,
+            double avg_dep_delay,
+            double cancellation_rate,
+            double late_departure_rate,
+            long processingStartTimeMs) {
+        super(windowStart, windowEnd, processingStartTimeMs);
         this.airline = airline;
         this.num_flights = num_flights;
         this.completed_flights = completed_flights;
@@ -27,20 +34,9 @@ public class Query1Stats implements HasProcessingStartTime {
         this.avg_dep_delay = avg_dep_delay;
         this.cancellation_rate = cancellation_rate;
         this.late_departure_rate = late_departure_rate;
-        this.processingStartTimeMs = processingStartTimeMs;
     }
 
     @Override
-    public long getProcessingStartTimeMs() {
-        return processingStartTimeMs;
-    }
-
-    @Override
-    public void setProcessingStartTimeMs(long processingStartTimeMs) {
-        this.processingStartTimeMs = processingStartTimeMs;
-    }
-
-    // final output format for Query1 results
     public String toCSV() {
         return String.format("%s,%s,%s,%d,%d,%d,%d,%.2f,%.4f,%.4f",
                 windowStart.toString(),

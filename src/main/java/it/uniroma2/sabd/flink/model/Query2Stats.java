@@ -1,7 +1,6 @@
 package it.uniroma2.sabd.flink.model;
 
 import it.uniroma2.sabd.flink.io.sink.CsvValues;
-import it.uniroma2.sabd.model.HasProcessingStartTime;
 import java.io.Serializable;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -15,25 +14,19 @@ import java.util.stream.Collectors;
  * Usato sia come output di FinalizeQuery2Stats / GlobalQuery2ProcessFunction
  * sia come input/output di RankingProcessFunction (che aggiunge il campo rank).
  */
-public class Query2Stats implements Serializable, HasProcessingStartTime {
+public class Query2Stats extends AbstractQueryStats {
 
-    // Aggiunto formatter per combaciare ESATTAMENTE col PDF (no T, no Z)
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter
             .ofPattern("yyyy-MM-dd HH:mm:ss")
             .withZone(ZoneId.of("UTC"));
 
-    private Instant windowStart;
-    private Instant windowEnd;      // Aggiunto per gestire correttamente il timer in RankingProcessFunction
-    private int rank;               // 0 prima del ranking, 1-10 dopo
-    private int originAirportId;
-    private long numFlights;
-    private long severeDelays;
-    private double depDelayMean;
-    private double depDelayMax;
-    private List<DelayedFlight> delayedFlights;
-    private long processingStartTimeMs;
-
-    public Query2Stats() {}
+    private int rank; // 0 prima del ranking, 1-10 dopo
+    private final int originAirportId;
+    private final long numFlights;
+    private final long severeDelays;
+    private final double depDelayMean;
+    private final double depDelayMax;
+    private final List<DelayedFlight> delayedFlights;
 
     public Query2Stats(
             Instant windowStart,
@@ -45,50 +38,26 @@ public class Query2Stats implements Serializable, HasProcessingStartTime {
             double depDelayMax,
             List<DelayedFlight> delayedFlights,
             long processingStartTimeMs) {
-        this.windowStart    = windowStart;
-        this.windowEnd      = windowEnd;
+        super(windowStart, windowEnd, processingStartTimeMs);
         this.originAirportId = originAirportId;
-        this.numFlights     = numFlights;
-        this.severeDelays   = severeDelays;
-        this.depDelayMean   = depDelayMean;
-        this.depDelayMax    = depDelayMax;
+        this.numFlights = numFlights;
+        this.severeDelays = severeDelays;
+        this.depDelayMean = depDelayMean;
+        this.depDelayMax = depDelayMax;
         this.delayedFlights = delayedFlights;
-        this.rank           = 0;
-        this.processingStartTimeMs = processingStartTimeMs;
+        this.rank = 0;
     }
 
-    // ts per la chiave di raggruppamento
-    public long getWindowStartEpoch() {
-        return windowStart != null ? windowStart.toEpochMilli() : 0L;
-    }
-
-    // Per gestire il timer event-time in base alla fine della finestra
-    public long getWindowEndEpoch() {
-        return windowEnd != null ? windowEnd.toEpochMilli() : 0L;
-    }
-
-    public Instant getWindowStart()         { return windowStart; }
-    public Instant getWindowEnd()           { return windowEnd; }
-    public int getRank()                    { return rank; }
-    public void setRank(int rank)           { this.rank = rank; }
-    public int getOriginAirportId()         { return originAirportId; }
-    public long getNumFlights()             { return numFlights; }
-    public long getSevereDelays()           { return severeDelays; }
-    public double getDepDelayMean()         { return depDelayMean; }
-    public double getDepDelayMax()          { return depDelayMax; }
+    public int getRank() { return rank; }
+    public void setRank(int rank) { this.rank = rank; }
+    public int getOriginAirportId() { return originAirportId; }
+    public long getNumFlights() { return numFlights; }
+    public long getSevereDelays() { return severeDelays; }
+    public double getDepDelayMean() { return depDelayMean; }
+    public double getDepDelayMax() { return depDelayMax; }
     public List<DelayedFlight> getDelayedFlights() { return delayedFlights; }
 
     @Override
-    public long getProcessingStartTimeMs() {
-        return processingStartTimeMs;
-    }
-
-    @Override
-    public void setProcessingStartTimeMs(long processingStartTimeMs) {
-        this.processingStartTimeMs = processingStartTimeMs;
-    }
-
-    // Generatore CSV per il Sink (Aggiunto per risolvere il formato data)
     public String toCSV() {
         String delayedStr = "[" + delayedFlights.stream()
                 .map(DelayedFlight::toString)
@@ -99,18 +68,18 @@ public class Query2Stats implements Serializable, HasProcessingStartTime {
                 numFlights, severeDelays, depDelayMean, depDelayMax, CsvValues.text(delayedStr));
     }
 
-    /** Volo con ritardo significativo — inner class come in Q3AggregatedStats. */
+    /** Volo con ritardo significativo, riportato nella lista delayed_flights dell'output. */
     public static class DelayedFlight implements Serializable {
         public String carrier;
-        public int destAirportId;   // Corretto: aeroporto di destinazione come da PDF
+        public int destAirportId; // aeroporto di destinazione, come da specifica
         public double depDelay;
 
         public DelayedFlight() {}
 
         public DelayedFlight(String carrier, int destAirportId, double depDelay) {
-            this.carrier      = carrier;
+            this.carrier = carrier;
             this.destAirportId = destAirportId;
-            this.depDelay     = depDelay;
+            this.depDelay = depDelay;
         }
 
         public double getDepDelay() { return depDelay; }
