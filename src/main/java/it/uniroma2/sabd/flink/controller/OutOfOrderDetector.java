@@ -46,7 +46,6 @@ public class OutOfOrderDetector
             out.collect(
                     new OutOfOrderEvent(
                             subtaskIndex,
-                            event.getCarrier(),
                             event.getEventTime(),
                             latenessMs));
         } else {

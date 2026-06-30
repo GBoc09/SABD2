@@ -1,10 +1,10 @@
 package it.uniroma2.sabd.flink.controller;
 
 import it.uniroma2.sabd.flink.model.OutOfOrderEvent;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.Serializable;
 
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.util.Collector;
@@ -23,16 +23,7 @@ public class OutOfOrderStatisticProcessor
 
     private final long reportEvery;
 
-    private long totalOutOfOrder;
-    private long totalLatenessMs;
-    private long maxLatenessMs;
-
-    private int sourceSubtaskIndex;
-    private String worstCarrier;
-    private String worstFlightTime;
-
-    private final Map<String, Long> carrierCounts =
-            new HashMap<>();
+    private transient ValueState<Stats> statsState;
 
     public OutOfOrderStatisticProcessor(long reportEvery) {
         this.reportEvery = reportEvery;
@@ -40,77 +31,65 @@ public class OutOfOrderStatisticProcessor
 
     @Override
     public void open(Configuration parameters) {
-
-        totalOutOfOrder = 0;
-        totalLatenessMs = 0;
-        maxLatenessMs = 0;
+        statsState = getRuntimeContext().getState(
+                new ValueStateDescriptor<>("out-of-order-stats", Stats.class));
     }
 
     @Override
     public void processElement(
             OutOfOrderEvent event,
             Context ctx,
-            Collector<OutOfOrderEvent> out) {
+            Collector<OutOfOrderEvent> out) throws Exception {
 
-        totalOutOfOrder++;
-        sourceSubtaskIndex = event.getSubtaskIndex();
-
-        totalLatenessMs += event.getLatenessMs();
-
-        carrierCounts.merge(
-                event.getCarrier(),
-                1L,
-                Long::sum);
-
-        if (event.getLatenessMs() > maxLatenessMs) {
-
-            maxLatenessMs = event.getLatenessMs();
-            worstCarrier = event.getCarrier();
-            worstFlightTime =
-                    event.getEventTime().toString();
+        Stats stats = statsState.value();
+        if (stats == null) {
+            stats = new Stats(event.getSubtaskIndex());
         }
 
-        if (totalOutOfOrder % reportEvery == 0) {
+        stats.totalOutOfOrder++;
+        stats.totalLatenessMs += event.getLatenessMs();
 
-            printReport();
+        if (event.getLatenessMs() > stats.maxLatenessMs) {
+            stats.maxLatenessMs = event.getLatenessMs();
+        }
+
+        statsState.update(stats);
+
+        if (stats.totalOutOfOrder % reportEvery == 0) {
+            printReport(stats);
         }
 
         out.collect(event);
     }
 
-    private void printReport() {
+    private void printReport(Stats stats) {
 
         double avgLatenessMs =
-                totalOutOfOrder == 0
+                stats.totalOutOfOrder == 0
                         ? 0
-                        : ((double) totalLatenessMs)
-                        / totalOutOfOrder;
+                        : ((double) stats.totalLatenessMs)
+                        / stats.totalOutOfOrder;
 
         LOG.info(
                 "OUT_OF_ORDER_REPORT sourceSubtask={} total={} avgLatenessMs={} "
-                + "maxLatenessMs={} worstCarrier={} worstFlightTime={} topCarriers={}",
-                sourceSubtaskIndex,
-                totalOutOfOrder,
+                + "maxLatenessMs={}",
+                stats.sourceSubtaskIndex,
+                stats.totalOutOfOrder,
                 String.format("%.2f", avgLatenessMs),
-                maxLatenessMs,
-                worstCarrier,
-                worstFlightTime,
-                topCarriers());
+                stats.maxLatenessMs);
     }
 
-    private String topCarriers() {
+    private static final class Stats implements Serializable {
+        private int sourceSubtaskIndex;
+        private long totalOutOfOrder;
+        private long totalLatenessMs;
+        private long maxLatenessMs;
 
-        return carrierCounts.entrySet()
-                .stream()
-                .sorted(
-                        Map.Entry.<String, Long>
-                                comparingByValue(
-                                        Comparator.reverseOrder()))
-                .limit(5)
-                .map(e ->
-                        e.getKey() + "=" + e.getValue())
-                .reduce(
-                        (a, b) -> a + ", " + b)
-                .orElse("N/A");
+        private Stats() {
+        }
+
+        private Stats(int sourceSubtaskIndex) {
+            this.sourceSubtaskIndex = sourceSubtaskIndex;
+        }
     }
 }
