@@ -49,12 +49,12 @@ echo "Forzando la build di NiFi senza cache..."
 $COMPOSE_CMD build --no-cache nifi
 
 echo "Build standard per gli altri servizi..."
-$COMPOSE_CMD build --no-cache namenode datanode kafka kafka-ui jobmanager taskmanager replay influxdb grafana
+$COMPOSE_CMD build --no-cache namenode datanode kafka kafka-ui jobmanager taskmanager replay grafana
 echo "Immagini pronte."
 echo ""
 
 echo "[3/4] Avvio dell'infrastruttura core..."
-$COMPOSE_CMD up -d nifi namenode datanode kafka kafka-ui jobmanager taskmanager influxdb grafana
+$COMPOSE_CMD up -d nifi namenode datanode kafka kafka-ui jobmanager taskmanager grafana
 echo "Container avviati."
 
 wait_for_hdfs_file() {
@@ -85,7 +85,6 @@ echo " - Kafka UI:      http://localhost:8080"
 echo " - Hadoop (HDFS): http://localhost:9870"
 echo " - Apache NiFi:   https://localhost:8443/nifi/login"
 echo " - Apache Flink:  http://localhost:8081"
-echo " - Apache InfluxDB:  http://localhost:8086"
 echo " - Apache Grafana:  http://localhost:3000"
 echo ""
 
