@@ -13,7 +13,7 @@ public class OutOfOrderDetector
         extends ProcessFunction<FlightEvent, OutOfOrderEvent> {
 
     private transient int subtaskIndex;
-    private long maxTimestampMs;
+    private transient long maxTimestampMs;
 
     @Override
     public void open(Configuration parameters) {
@@ -25,7 +25,7 @@ public class OutOfOrderDetector
     public void processElement(
             FlightEvent event,
             Context ctx,
-            Collector<OutOfOrderEvent> out) throws Exception {
+            Collector<OutOfOrderEvent> out) {
 
         if (event.getEventTime() == null) {
             return;

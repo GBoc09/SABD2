@@ -15,7 +15,7 @@ final class Query2AggregatedStats implements Serializable {
     final long severeDelays;
     final double depDelaySum;
     final double depDelayMax;
-    final List<DelayedFlight> delayedFlights;
+    final transient List<DelayedFlight> delayedFlights;
     final long processingStartTimeMs;
 
     Query2AggregatedStats(

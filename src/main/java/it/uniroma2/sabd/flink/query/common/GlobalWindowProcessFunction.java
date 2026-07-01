@@ -15,8 +15,8 @@ import org.apache.flink.util.OutputTag;
 public abstract class GlobalWindowProcessFunction<K, ACC, OUT>
         extends KeyedProcessFunction<K, FlightEvent, OUT> {
 
-    private MapState<Long, ACC> monthlyStatsState;
-    private ValueState<Long> nextTimerState;
+    private transient MapState<Long, ACC> monthlyStatsState;
+    private transient ValueState<Long> nextTimerState;
 
     @Override
     public void open(Configuration parameters) {

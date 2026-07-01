@@ -1,6 +1,7 @@
 package it.uniroma2.sabd.flink.model;
 
 import java.time.Instant;
+import static it.uniroma2.sabd.flink.utils.EventTimeUtils.CSV_FORMATTER;
 
 public class Query1Stats extends AbstractQueryStats {
 
@@ -39,8 +40,8 @@ public class Query1Stats extends AbstractQueryStats {
     @Override
     public String toCSV() {
         return String.format("%s,%s,%s,%d,%d,%d,%d,%.2f,%.4f,%.4f",
-                windowStart.toString(),
-                windowEnd.toString(),
+                CSV_FORMATTER.format(windowStart),
+                CSV_FORMATTER.format(windowEnd),
                 airline,
                 num_flights,
                 completed_flights,

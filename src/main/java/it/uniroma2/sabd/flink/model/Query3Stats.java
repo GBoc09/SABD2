@@ -2,7 +2,7 @@ package it.uniroma2.sabd.flink.model;
 
 import java.time.Instant;
 import java.util.Locale;
-
+import static it.uniroma2.sabd.flink.utils.EventTimeUtils.CSV_FORMATTER;
 /**
  * Modello base per Q3 sulle finestre tumbling.
  * Query3GlobalStats estende questa classe per la finestra globale.
@@ -47,7 +47,7 @@ public class Query3Stats extends AbstractQueryStats {
     @Override
     public String toCSV() {
         return String.format(Locale.ROOT, "%s,%s,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
-                windowStart.toString(),
+                CSV_FORMATTER.format(windowStart),
                 airline,
                 departureHour,
                 num_flights,

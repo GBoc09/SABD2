@@ -9,6 +9,7 @@ import org.apache.kafka.clients.admin.TopicDescription;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 public class KafkaTopicManager {
 
@@ -22,7 +23,7 @@ public class KafkaTopicManager {
             String topicName,
             int partitions,
             short replicationFactor)
-            throws Exception {
+            throws ExecutionException, InterruptedException {
 
         Properties properties =
                 new Properties();

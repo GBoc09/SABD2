@@ -2,7 +2,6 @@ package it.uniroma2.sabd.flink.query.query2;
 
 import it.uniroma2.sabd.flink.model.Query2Stats;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;

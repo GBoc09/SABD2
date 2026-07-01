@@ -7,30 +7,30 @@ import org.apache.flink.core.fs.Path;
 public final class QuerySinks {
 
     private QuerySinks() {}
-
+    private static final String BASE_OUTPUT_DIR = "output/";
     public static FileSink<String> query1Csv(String watermark) {
-        return csvSink("output/" + watermark + "/query1");
+        return csvSink(BASE_OUTPUT_DIR + watermark + "/query1");
     }
 
     public static FileSink<String> query2SixHoursCsv(String watermark) {
-        return csvSink("output/" + watermark + "/query2/6h");
+        return csvSink(BASE_OUTPUT_DIR + watermark + "/query2/6h");
     }
     public static FileSink<String> query2OneHourCsv(String watermark) {
-        return csvSink("output/" + watermark + "/query2/1h");
+        return csvSink(BASE_OUTPUT_DIR + watermark + "/query2/1h");
     }
     public static FileSink<String> query2GlobalCsv(String watermark) {
-        return csvSink("output/" + watermark + "/query2/global");
+        return csvSink(BASE_OUTPUT_DIR + watermark + "/query2/global");
     }
     public static FileSink<String> query3OneDayCsv(String watermark) {
-        return csvSink("output/" + watermark + "/query3/1day");
+        return csvSink(BASE_OUTPUT_DIR + watermark + "/query3/1day");
     }
 
     public static FileSink<String> query3SevenDaysCsv(String watermark) {
-        return csvSink("output/" + watermark + "/query3/7day");
+        return csvSink(BASE_OUTPUT_DIR + watermark + "/query3/7day");
     }
 
     public static FileSink<String> queryGlobalCsv(String watermark) {
-        return csvSink("output/" + watermark + "/query3/global");
+        return csvSink(BASE_OUTPUT_DIR + watermark + "/query3/global");
     }
 
     public static FileSink<String> discardedTuplesCsv(
@@ -38,7 +38,7 @@ public final class QuerySinks {
             String query,
             String window) {
 
-        return csvSink("output/" + watermark + "/discarded_tuples/" + query + "/" + window);
+        return csvSink(BASE_OUTPUT_DIR + watermark + "/discarded_tuples/" + query + "/" + window);
     }
 
     private static FileSink<String> csvSink(String outputPath) {

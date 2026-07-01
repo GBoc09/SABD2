@@ -1,4 +1,3 @@
-// flink/model/AbstractQueryStats.java
 package it.uniroma2.sabd.flink.model;
 
 import it.uniroma2.sabd.model.HasProcessingStartTime;

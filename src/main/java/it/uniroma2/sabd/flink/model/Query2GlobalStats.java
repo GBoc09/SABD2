@@ -2,11 +2,10 @@ package it.uniroma2.sabd.flink.model;
 
 import it.uniroma2.sabd.flink.io.sink.CsvValues;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
+import static it.uniroma2.sabd.flink.utils.EventTimeUtils.CSV_FORMATTER;
 
 /**
  * Sottoclasse specifica per la finestra Globale di Query 2.
@@ -14,10 +13,6 @@ import java.util.stream.Collectors;
  * ma stampa windowStart come ts CSV, come richiesto dallo schema.
  */
 public class Query2GlobalStats extends Query2Stats {
-
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter
-            .ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(ZoneId.of("UTC"));
 
     public Query2GlobalStats(
             Instant globalStart,
@@ -41,7 +36,7 @@ public class Query2GlobalStats extends Query2Stats {
                 .collect(Collectors.joining(", ")) + "]";
 
         return String.format(Locale.US, "%s,%d,%d,%d,%d,%.2f,%.2f,%s",
-                FORMATTER.format(getWindowEnd()),
+                CSV_FORMATTER.format(getWindowEnd()),
                 getRank(),
                 getOriginAirportId(),
                 getNumFlights(),

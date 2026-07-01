@@ -22,7 +22,7 @@ public class AppConfig {
     private final long oooReportEveryEvents;
     Properties props = new Properties();
     private AppConfig(ParameterTool params) {
-        //Properties props = new Properties();
+
         try (InputStream input = AppConfig.class
                 .getClassLoader()
                 .getResourceAsStream("application.properties")) {

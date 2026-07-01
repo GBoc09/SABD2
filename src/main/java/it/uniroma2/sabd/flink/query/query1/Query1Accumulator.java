@@ -3,6 +3,8 @@ package it.uniroma2.sabd.flink.query.query1;
 import it.uniroma2.sabd.model.FlightEvent;
 import org.apache.flink.api.common.functions.AggregateFunction;
 
+import java.io.Serializable;
+
 final class Query1Accumulator implements AggregateFunction<FlightEvent, Query1Accumulator.State, Query1AggregatedStats> {
     /*
      * Questa classe definisce come aggregare gli eventi dentro una
@@ -93,14 +95,17 @@ final class Query1Accumulator implements AggregateFunction<FlightEvent, Query1Ac
         return left;
     }
 
-    static final class State {
-        private long totalFlights;
-        private long completedFlights;
-        private long cancelledFlights;
-        private long divertedFlights;
-        private long nonCancelledFlights;
-        private double depDelaySum;
-        private long lateDepartureFlights;
-        private long processingStartTimeMs;
+    static final class State implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+
+        long totalFlights;
+        long completedFlights;
+        long cancelledFlights;
+        long divertedFlights;
+        long nonCancelledFlights;
+        double depDelaySum;
+        long lateDepartureFlights;
+        long processingStartTimeMs;
     }
 }

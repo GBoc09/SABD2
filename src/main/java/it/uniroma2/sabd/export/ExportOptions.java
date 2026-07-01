@@ -20,15 +20,23 @@ public final class ExportOptions {
         boolean sortRows = false;
         List<StaticColumn> staticColumns = new ArrayList<>();
 
-        for (int i = fromIndex; i < args.length; i++) {
+        int i = fromIndex;
+        while (i < args.length) {
             String option = args[i];
+
             if ("--sort".equals(option)) {
                 sortRows = true;
+                i++;
+
             } else if ("--column".equals(option)) {
                 if (i + 1 >= args.length) {
                     throw new IllegalArgumentException("Opzione --column senza nome=valore");
                 }
-                staticColumns.add(StaticColumn.parse(args[++i]));
+
+                staticColumns.add(StaticColumn.parse(args[i + 1]));
+
+                i += 2;
+
             } else {
                 throw new IllegalArgumentException("Opzione non riconosciuta: " + option);
             }

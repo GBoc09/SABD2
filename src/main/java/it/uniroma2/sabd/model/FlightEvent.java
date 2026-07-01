@@ -45,7 +45,7 @@ public class FlightEvent implements HasProcessingStartTime {
         this.processingStartTimeMs = processingStartTimeMs;
     }
 
-    // --- getters/setters invariati ---
+    // --- getters/setters ---
     public LocalDateTime getEventTime() { return eventTime; }
     public void setEventTime(LocalDateTime eventTime) { this.eventTime = eventTime; }
 

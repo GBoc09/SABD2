@@ -5,7 +5,6 @@ import it.uniroma2.sabd.flink.model.Query2Stats.DelayedFlight;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
 import org.apache.flink.api.common.functions.AggregateFunction;
 
 final class Query2Accumulator
@@ -89,6 +88,6 @@ final class Query2Accumulator
         double depDelaySum     = 0.0;
         double depDelayMax     = Double.NEGATIVE_INFINITY;
         long   processingStartTimeMs = 0L;
-        List<DelayedFlight> delayedFlights = new ArrayList<>();
+        ArrayList<DelayedFlight> delayedFlights = new ArrayList<>();
     }
 }

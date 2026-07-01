@@ -3,14 +3,11 @@ package it.uniroma2.sabd.flink.query.query1;
 import static it.uniroma2.sabd.flink.query.TargetAirlines.TARGET_AIRLINES;
 
 import it.uniroma2.sabd.config.AppConfig;
-import it.uniroma2.sabd.flink.controller.LatencyMonitor;
-import it.uniroma2.sabd.flink.controller.PerformanceMetricTags;
-import it.uniroma2.sabd.flink.controller.ThroughputMonitor;
 import it.uniroma2.sabd.flink.io.sink.DiscardedTupleSinks;
-import it.uniroma2.sabd.flink.io.sink.PerformanceSinks;
 import it.uniroma2.sabd.flink.io.sink.QuerySinks;
-import it.uniroma2.sabd.model.FlightEvent;
 import it.uniroma2.sabd.flink.model.Query1Stats;
+import it.uniroma2.sabd.flink.query.common.QueryMonitoringPipeline;
+import it.uniroma2.sabd.model.FlightEvent;
 import java.time.Duration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
@@ -18,66 +15,28 @@ import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindo
 import org.apache.flink.util.OutputTag;
 
 public final class Query1 {
+
     private static final OutputTag<FlightEvent> LATE_1H_TAG =
             new OutputTag<FlightEvent>("q1-discarded-1h") { };
 
-    /*
-     * voli relativi alle compagnie AA (American Airlines), DL (Delta),
-     * UA (United) e WN (Southwest), aggregare gli eventi usando finestre tumbling di durata pari a 1 ora,
-     * basate sull'event time.
-     * Per ciascuna finestra e per ciascuna compagnia, calcolare:
-     *      - il numero totale di voli osservati;
-     *      - il numero di voli completati (cioe non cancellati e non deviati), cancellati e deviati;
-     *      - il valor medio di DEP DELAY, considerando solo i voli non cancellati;
-     *      - il tasso di cancellazione, definito come percentuale di voli cancellati sul totale dei voli osservati
-     *        nella finestra;
-     *      - il tasso di partenze in ritardo, definito come percentuale di voli non cancellati con DEP DELAY
-     *        maggiore di 15 minuti.
-     */
-    private Query1() {
-    }
+    private Query1() {}
 
     public static void execute(DataStream<FlightEvent> flightStream, AppConfig config, String watermarkName) {
+
         SingleOutputStreamOperator<Query1Stats> stats = flightStream
                 .filter(event -> TARGET_AIRLINES.contains(event.getCarrier()))
                 .keyBy(FlightEvent::getCarrier)
                 .window(TumblingEventTimeWindows.of(Duration.ofHours(1)))
                 .sideOutputLateData(LATE_1H_TAG)
-                .aggregate(
-                        new Query1Accumulator(),
-                        new FinalizeQuery1Stats()
-                );
+                .aggregate(new Query1Accumulator(), new FinalizeQuery1Stats());
 
         DiscardedTupleSinks.writeFixedWindow(
                 stats.getSideOutput(LATE_1H_TAG),
-                watermarkName,
-                "q1",
-                "1h",
-                Duration.ofHours(1));
+                watermarkName, "q1", "1h", Duration.ofHours(1));
 
-        String resultLabel = "q1-1h-result-" + watermarkName;
-
-        SingleOutputStreamOperator<Query1Stats> latencyMonitoredStats = stats
-                .process(new LatencyMonitor<>(resultLabel,
-                        config.getMetricsLatencyIntervalMs()))
-                .name("Q1 1h Result Latency Monitor");
-
-        SingleOutputStreamOperator<Query1Stats> monitoredStats = latencyMonitoredStats
-                .process(new ThroughputMonitor<>(resultLabel,
-                        config.getMetricsThroughputIntervalMs()))
-                .name("Q1 1h Result Throughput Monitor");
-
-        PerformanceSinks.writeLatencyCsvAtPath(
-                latencyMonitoredStats.getSideOutput(PerformanceMetricTags.LATENCY),
-                config.getPerformanceOutputPath() + "/" + watermarkName + "/latency/q1_1h");
-        PerformanceSinks.writeGlobalThroughputCsvAtPath(
-                monitoredStats.getSideOutput(PerformanceMetricTags.THROUGHPUT),
-                config.getPerformanceOutputPath() + "/" + watermarkName + "/throughput/q1_1h",
-                config.getMetricsThroughputIntervalMs());
-
-        monitoredStats
-                .map(Query1Stats::toCSV)
-                .sinkTo(QuerySinks.query1Csv(watermarkName))
-                .name("Query1 CSV Sink");
+        QueryMonitoringPipeline.monitorAndSink(
+                stats, config, watermarkName, "q1", "1h",
+                Query1Stats::toCSV,
+                QuerySinks.query1Csv(watermarkName));
     }
 }

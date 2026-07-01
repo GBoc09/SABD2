@@ -27,7 +27,7 @@ public class FlightCsvParser {
 
         return event;
     }
-
+    private FlightCsvParser() {}
     private static double parseDoubleOrZero(String value) {
         if (value == null || value.trim().isEmpty()) return 0.0;
         return Double.parseDouble(value.trim());

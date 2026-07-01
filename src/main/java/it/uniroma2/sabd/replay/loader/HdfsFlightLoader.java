@@ -6,13 +6,14 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.fs.*;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
 public class HdfsFlightLoader {
 
-    public List<FlightEvent> load(String hdfsUri, String filePath) throws Exception {
+    public List<FlightEvent> load(String hdfsUri, String filePath) throws IOException {
         List<FlightEvent> events = new ArrayList<>();
         Configuration conf = new Configuration();
         conf.set("fs.defaultFS", hdfsUri);
@@ -22,8 +23,8 @@ public class HdfsFlightLoader {
         Path path = new Path(filePath);
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(path)))) {
-            reader.readLine(); // Salta header
-
+            String header=reader.readLine(); // Salta header
+            if(header==null) System.out.println("Header is null");
             String line;
             while ((line = reader.readLine()) != null) {
                 FlightEvent event = FlightCsvParser.parseLine(line);

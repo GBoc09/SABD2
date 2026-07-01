@@ -16,6 +16,9 @@ public class AdaptiveWatermarkGenerator implements WatermarkGenerator<FlightEven
     
     private int sampleCount = 0;
     private static final int MAX_SAMPLES = 5000;
+    private static final int    MIN_SAMPLES       = 100;
+    private static final long   FALLBACK_BOUND_MS = 2 * 60 * 1000L; // 2 minuti
+    private static final double PERCENTILE        = 0.95;
 
     private static final Logger LOG = LoggerFactory.getLogger(AdaptiveWatermarkGenerator.class);
 
@@ -33,7 +36,6 @@ public class AdaptiveWatermarkGenerator implements WatermarkGenerator<FlightEven
         // Strategia di rotazione: se superiamo i 5000 campioni, resettiamo
         // per non portarci dietro dati vecchi
         if (sampleCount > MAX_SAMPLES) {
-            TDigest oldDigest = digest;
             digest = TDigest.createDigest(100);
             sampleCount = 0;
         }
@@ -48,10 +50,11 @@ public class AdaptiveWatermarkGenerator implements WatermarkGenerator<FlightEven
         long currentWatermark;
 
         // Se abbiamo meno di 100 campioni, usiamo il fallback di 2 minuti
-        if (digest.size() < 100) {
-            currentWatermark = maxEventTime - 2 * 60 * 1000;
+        if (digest.size() < MIN_SAMPLES) {
+            currentWatermark = maxEventTime - FALLBACK_BOUND_MS;
         } else {
-            long p95 = (long) digest.quantile(0.95);
+            digest.compress();  // Comprime prima di interrogare il digest: riduce i centroidi e migliora precisione e velocità della query sul quantile.
+            long p95 = (long) digest.quantile(PERCENTILE);
 
             currentWatermark = maxEventTime - p95;
         }

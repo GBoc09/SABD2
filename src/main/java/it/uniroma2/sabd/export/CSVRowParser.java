@@ -5,7 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Parsing e ordinamento di righe CSV grezze (gestisce campi quotati con virgole interne,
+ * Parsing e ordinamento di righe CSV grezze (gestisce campi con virgole interne,
  * es. la colonna delayed_flights di Q2 che contiene "[(AA,123,45.00), ...]").
  */
 final class CSVRowParser {
@@ -17,7 +17,8 @@ final class CSVRowParser {
         StringBuilder current = new StringBuilder();
         boolean inQuotes = false;
 
-        for (int i = 0; i < row.length(); i++) {
+        int i = 0;
+        while (i < row.length()) {
             char ch = row.charAt(i);
 
             if (ch == '"') {
@@ -33,6 +34,8 @@ final class CSVRowParser {
             } else {
                 current.append(ch);
             }
+
+            i++;
         }
 
         values.add(current.toString());

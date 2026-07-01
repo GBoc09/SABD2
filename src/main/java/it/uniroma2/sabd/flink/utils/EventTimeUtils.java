@@ -2,13 +2,19 @@ package it.uniroma2.sabd.flink.utils;
 
 import it.uniroma2.sabd.model.FlightEvent;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 
 public final class EventTimeUtils {
 
     private EventTimeUtils() {}
+
+    public static final DateTimeFormatter CSV_FORMATTER = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss")
+            .withZone(ZoneId.of("UTC"));
 
     public static long eventTimestamp(
             KeyedProcessFunction<?, FlightEvent, ?>.Context ctx,

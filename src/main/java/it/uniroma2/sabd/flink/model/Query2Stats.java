@@ -3,22 +3,16 @@ package it.uniroma2.sabd.flink.model;
 import it.uniroma2.sabd.flink.io.sink.CsvValues;
 import java.io.Serializable;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
-
+import static it.uniroma2.sabd.flink.utils.EventTimeUtils.CSV_FORMATTER;
 /**
  * Risultato aggregato per un singolo aeroporto in una finestra.
  * Usato sia come output di FinalizeQuery2Stats / GlobalQuery2ProcessFunction
  * sia come input/output di RankingProcessFunction (che aggiunge il campo rank).
  */
 public class Query2Stats extends AbstractQueryStats {
-
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter
-            .ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(ZoneId.of("UTC"));
 
     private int rank; // 0 prima del ranking, 1-10 dopo
     private final int originAirportId;
@@ -64,7 +58,7 @@ public class Query2Stats extends AbstractQueryStats {
                 .collect(Collectors.joining(", ")) + "]";
 
         return String.format(Locale.US, "%s,%d,%d,%d,%d,%.2f,%.2f,%s",
-                FORMATTER.format(windowStart), rank, originAirportId,
+                CSV_FORMATTER.format(windowStart), rank, originAirportId,
                 numFlights, severeDelays, depDelayMean, depDelayMax, CsvValues.text(delayedStr));
     }
 
